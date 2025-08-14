@@ -1,0 +1,21 @@
+{
+  "name": "instantservice",
+  "version": "1.0.0",
+  "description": "InstantService - A service provider marketplace",
+  "scripts": {
+    "supabase:start": "npx supabase start",
+    "supabase:stop": "npx supabase stop",
+    "supabase:status": "npx supabase status",
+    "supabase:reset": "npx supabase db reset",
+    "supabase:studio": "npx supabase db studio",
+    "supabase:types": "npx supabase gen types typescript --local > Frontend/src/lib/database.types.ts",
+    "dev:frontend": "cd Frontend && npm run dev",
+    "dev:backend": "cd Backend && npm run dev",
+    "install:all": "npm install && cd Frontend && npm install && cd ../Backend && npm install"
+  },
+  "keywords": ["supabase", "react", "typescript", "service-provider"],
+  "author": "",
+  "license": "ISC"
+}
+
+
