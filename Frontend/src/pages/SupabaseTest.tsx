@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/lib/supabase";
+import { supabase, supabaseAdmin } from "@/lib/supabase";
 
 const SupabaseTest = () => {
   const [testResults, setTestResults] = useState<any>({});
@@ -201,8 +201,8 @@ const SupabaseTest = () => {
       console.log('Categories data:', categoriesData);
       console.log('Categories error:', categoriesError);
       
-      // Step 2: Test users table structure
-      const { data: usersData, error: usersError } = await supabase
+      // Step 2: Test users table structure using ADMIN client (bypasses RLS)
+      const { data: usersData, error: usersError } = await supabaseAdmin
         .from('users')
         .select('*')
         .limit(3);
@@ -308,6 +308,50 @@ const SupabaseTest = () => {
               >
                 {loading ? 'Testing...' : 'Test Data Flow'}
               </Button>
+              <Button
+                onClick={async () => {
+                  setLoading(true);
+                  try {
+                    // Test anon access (should fail due to RLS)
+                    const { data: anonData, error: anonError } = await supabase
+                      .from('users')
+                      .select('*')
+                      .limit(1);
+                    
+                    // Test admin access (should succeed)
+                    const { data: adminData, error: adminError } = await supabaseAdmin
+                      .from('users')
+                      .select('*')
+                      .limit(1);
+                    
+                    setTestResults(prev => ({
+                      ...prev,
+                      usersTableTest: {
+                        anon: { success: !anonError, data: anonData, error: anonError?.message },
+                        admin: { success: !adminError, data: adminData, error: adminError?.message }
+                      }
+                    }));
+                    
+                    toast({
+                      title: "✅ Users Table Test Complete",
+                      description: `Anon: ${anonError ? 'Failed' : 'Success'}, Admin: ${adminError ? 'Failed' : 'Success'}`,
+                      variant: "default",
+                    });
+                  } catch (error: any) {
+                    toast({
+                      title: "❌ Users Table Test Error",
+                      description: error.message,
+                      variant: "destructive",
+                    });
+                  } finally {
+                    setLoading(false);
+                  }
+                }}
+                disabled={loading}
+                className="bg-red-600 hover:bg-red-700"
+              >
+                {loading ? 'Testing...' : 'Test Users Table'}
+              </Button>
             </div>
 
             {/* Environment Variables */}
@@ -372,6 +416,22 @@ const SupabaseTest = () => {
                       <div><strong>Users Table:</strong> {testResults.dataFlow.users.success ? '✅ Accessible' : '❌ Failed'}</div>
                       <div><strong>Providers Table:</strong> {testResults.dataFlow.providers.success ? '✅ Accessible' : '❌ Failed'}</div>
                       <div><strong>Bookings Table:</strong> {testResults.dataFlow.bookings.success ? '✅ Accessible' : '❌ Failed'}</div>
+                    </div>
+                  </div>
+                )}
+
+                {testResults.usersTableTest && (
+                  <div className="bg-gray-100 p-4 rounded-lg">
+                    <h4 className="font-medium text-gray-900 mb-2">Users Table Test:</h4>
+                    <div className="text-sm text-gray-600 space-y-2">
+                      <div><strong>Anon Access:</strong> {testResults.usersTableTest.anon.success ? '✅ Success' : '❌ Failed'}</div>
+                      <div><strong>Admin Access:</strong> {testResults.usersTableTest.admin.success ? '✅ Success' : '❌ Failed'}</div>
+                      {testResults.usersTableTest.anon.error && (
+                        <div><strong>Anon Error:</strong> {testResults.usersTableTest.anon.error}</div>
+                      )}
+                      {testResults.usersTableTest.admin.error && (
+                        <div><strong>Admin Error:</strong> {testResults.usersTableTest.admin.error}</div>
+                      )}
                     </div>
                   </div>
                 )}

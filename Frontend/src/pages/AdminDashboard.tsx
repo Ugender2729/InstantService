@@ -24,6 +24,7 @@ import {
   Database
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import UserVerificationTable from "@/components/UserVerificationTable";
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
@@ -359,16 +360,13 @@ const AdminDashboard = () => {
           <TabsContent value="users">
             <Card>
               <CardHeader>
-                <CardTitle>User Management</CardTitle>
+                <CardTitle>User Management & Verification</CardTitle>
                 <CardDescription>
-                  View and manage user accounts
+                  View and verify user accounts and service providers
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="text-center py-8 text-muted-foreground">
-                  <Users className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                  <p>User management features coming soon</p>
-                </div>
+                <UserVerificationTable />
               </CardContent>
             </Card>
           </TabsContent>
