@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -7,18 +7,20 @@ import { Search, Star, MapPin, Phone, Mail, Calendar, Clock, ArrowLeft } from "l
 import BookingModal from "@/components/BookingModal";
 import { useUser } from "@/contexts/UserContext";
 import { Link } from "react-router-dom";
+import { supabase } from "@/lib/supabase";
+import { useToast } from "@/hooks/use-toast";
+import DatabaseTest from "@/components/DatabaseTest";
 
 interface Provider {
   id: string;
-  name: string;
+  full_name: string;
   email: string;
   phone: string;
-  location: string;
-  rating: number;
-  services: Service[];
-  experience: string;
-  bio: string;
-  avatar: string;
+  address: string;
+  user_type: string;
+  created_at: string;
+  verification_status: 'pending' | 'approved' | 'rejected';
+  services?: Service[];
 }
 
 interface Service {
@@ -34,99 +36,77 @@ const ViewProviders = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
+  const { toast } = useToast();
 
   // Mock providers data
-  const providers: Provider[] = [
-    {
-      id: "provider-1",
-      name: "Sarah Johnson",
-      email: "sarah@example.com",
-      phone: "+91 9876543210",
-      location: "Mumbai, Maharashtra",
-      rating: 4.8,
-      experience: "5+ years",
-      bio: "Professional cleaning expert with 5+ years of experience. Specialized in deep cleaning and eco-friendly solutions.",
-      avatar: "https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop&crop=face",
-      services: [
-        {
-          id: 1,
-          name: "Deep House Cleaning",
-          price: 2500,
-          description: "Complete house cleaning including kitchen, bathrooms, living areas",
-          category: "Cleaning"
-        },
-        {
-          id: 2,
-          name: "Kitchen Deep Clean",
-          price: 1200,
-          description: "Specialized kitchen cleaning with appliance maintenance",
-          category: "Cleaning"
-        }
-      ]
-    },
-    {
-      id: "provider-2",
-      name: "David Chen",
-      email: "david@example.com",
-      phone: "+91 9876543211",
-      location: "Delhi, NCR",
-      rating: 4.6,
-      experience: "3+ years",
-      bio: "Expert plumber with extensive experience in residential and commercial plumbing solutions.",
-      avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face",
-      services: [
-        {
-          id: 3,
-          name: "Plumbing Repair",
-          price: 800,
-          description: "Fix leaks, clogs, and plumbing issues",
-          category: "Plumbing"
-        },
-        {
-          id: 4,
-          name: "Bathroom Installation",
-          price: 5000,
-          description: "Complete bathroom fixture installation and setup",
-          category: "Plumbing"
-        }
-      ]
-    },
-    {
-      id: "provider-3",
-      name: "Maria Rodriguez",
-      email: "maria@example.com",
-      phone: "+91 9876543212",
-      location: "Bangalore, Karnataka",
-      rating: 4.9,
-      experience: "7+ years",
-      bio: "Certified electrician with expertise in residential electrical work and safety compliance.",
-      avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop&crop=face",
-      services: [
-        {
-          id: 5,
-          name: "Electrical Wiring",
-          price: 1500,
-          description: "Complete electrical wiring and installation",
-          category: "Electrical"
-        },
-        {
-          id: 6,
-          name: "Fan Installation",
-          price: 400,
-          description: "Ceiling fan installation and repair",
-          category: "Electrical"
-        }
-      ]
+  const [providers, setProviders] = useState<Provider[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [processingProvider, setProcessingProvider] = useState<string | null>(null);
+
+  // Fetch real providers from database
+  useEffect(() => {
+    fetchProviders();
+  }, []);
+
+  const fetchProviders = async () => {
+    try {
+      setLoading(true);
+      console.log('Fetching providers...');
+      
+      // First, let's check if we can access the users table at all
+      const { data: testData, error: testError } = await supabase
+        .from('users')
+        .select('id')
+        .limit(1);
+      
+      if (testError) {
+        console.error('Test query failed:', testError);
+        throw testError;
+      }
+      
+      console.log('Test query successful, now fetching providers...');
+      
+      // Use specific columns instead of select(*) to avoid 406 errors
+      const { data, error } = await supabase
+        .from('users')
+        .select(`
+          id,
+          full_name,
+          email,
+          phone,
+          address,
+          user_type,
+          verification_status,
+          created_at
+        `)
+        .eq('user_type', 'provider')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Provider fetch error:', error);
+        throw error;
+      }
+      
+      console.log('Providers fetched successfully:', data);
+      setProviders(data || []);
+    } catch (error: any) {
+      console.error('Error fetching providers:', error);
+      toast({
+        title: "❌ Error",
+        description: `Failed to fetch providers: ${error.message}`,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
+
+  // Mock data removed - using real data from database
 
   const filteredProviders = providers.filter(provider =>
-    provider.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    provider.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    provider.services.some(service => 
-      service.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      service.category.toLowerCase().includes(searchTerm.toLowerCase())
-    )
+    provider.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    provider.address.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    provider.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const handleBookService = (service: Service) => {
@@ -137,6 +117,151 @@ const ViewProviders = () => {
   const handleCloseBookingModal = () => {
     setIsBookingModalOpen(false);
     setSelectedService(null);
+  };
+
+  const handleAcceptProvider = async (providerId: string) => {
+    try {
+      setProcessingProvider(providerId);
+      
+      // First update the users table
+      const { error: tableError } = await supabase
+        .from('users')
+        .update({ verification_status: 'approved' })
+        .eq('id', providerId);
+
+      if (tableError) throw tableError;
+
+      // Then update the Supabase Auth user metadata
+      const { error: authError } = await supabase.auth.admin.updateUserById(providerId, {
+        user_metadata: { 
+          user_type: 'provider',
+          verification_status: 'approved'
+        }
+      });
+
+      if (authError) {
+        console.log('Auth update error (this is normal for non-admin users):', authError);
+      }
+
+      // Update the local state immediately for better UX
+      setProviders(prevProviders => {
+        const updatedProviders = prevProviders.map(provider => 
+          provider.id === providerId 
+            ? { ...provider, verification_status: 'approved' as const }
+            : provider
+        );
+        console.log('Updated providers state:', updatedProviders);
+        return updatedProviders;
+      });
+
+      // Refresh providers list from database
+      await fetchProviders();
+
+      // Trigger admin dashboard refresh if on admin page
+      if (window.location.pathname.includes('/admin')) {
+        window.dispatchEvent(new CustomEvent('providerStatusChanged'));
+      }
+
+      toast({
+        title: "✅ Provider Accepted!",
+        description: "Service provider has been accepted. Contact details are now visible.",
+        variant: "default",
+      });
+    } catch (error: any) {
+      console.error('Error accepting provider:', error);
+      toast({
+        title: "❌ Error",
+        description: "Failed to accept provider. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setProcessingProvider(null);
+    }
+  };
+
+  const handleIgnoreProvider = async (providerId: string) => {
+    try {
+      setProcessingProvider(providerId);
+      
+      // First update the users table
+      const { error: tableError } = await supabase
+        .from('users')
+        .update({ verification_status: 'rejected' })
+        .eq('id', providerId);
+
+      if (tableError) throw tableError;
+
+      // Then update the Supabase Auth user metadata
+      const { error: authError } = await supabase.auth.admin.updateUserById(providerId, {
+        user_metadata: { 
+          user_type: 'provider',
+          verification_status: 'rejected'
+        }
+      });
+
+      if (authError) {
+        console.log('Auth update error (this is normal for non-admin users):', authError);
+      }
+
+      // Update the local state immediately for better UX
+      setProviders(prevProviders => 
+        prevProviders.map(provider => 
+          provider.id === providerId 
+            ? { ...provider, verification_status: 'rejected' as const }
+            : provider
+        )
+      );
+
+      // Refresh providers list from database
+      await fetchProviders();
+
+      // Trigger admin dashboard refresh if on admin page
+      if (window.location.pathname.includes('/admin')) {
+        window.dispatchEvent(new CustomEvent('providerStatusChanged'));
+      }
+
+      toast({
+        title: "⚠️ Provider Ignored",
+        description: "Service provider has been ignored.",
+        variant: "default",
+      });
+    } catch (error: any) {
+      console.error('Error ignoring provider:', error);
+      toast({
+        title: "❌ Error",
+        description: "Failed to ignore provider. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setProcessingProvider(null);
+    }
+  };
+
+  const handleVerification = async (providerId: string, status: 'approved' | 'rejected') => {
+    try {
+      const { error } = await supabase
+        .from('users')
+        .update({ verification_status: status })
+        .eq('id', providerId);
+
+      if (error) throw error;
+
+      // Refresh providers list
+      await fetchProviders();
+
+      toast({
+        title: "✅ Success",
+        description: `Provider ${status === 'approved' ? 'approved' : 'rejected'} successfully.`,
+        variant: "default",
+      });
+    } catch (error: any) {
+      console.error('Error updating verification status:', error);
+      toast({
+        title: "❌ Error",
+        description: "Failed to update verification status. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -158,6 +283,11 @@ const ViewProviders = () => {
         </div>
       </div>
 
+      {/* Database Test Component - Temporary for debugging */}
+      <div className="mb-8">
+        <DatabaseTest />
+      </div>
+
       {/* Search Bar */}
       <div className="mb-6">
         <div className="relative">
@@ -177,32 +307,28 @@ const ViewProviders = () => {
           <Card key={provider.id} className="hover:shadow-lg transition-shadow">
             <CardHeader>
               <div className="flex items-start gap-4">
-                <img
-                  src={provider.avatar}
-                  alt={provider.name}
-                  className="w-16 h-16 rounded-full object-cover"
-                />
+                <div className="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center">
+                  <span className="text-2xl font-bold text-blue-600">
+                    {provider.full_name.charAt(0).toUpperCase()}
+                  </span>
+                </div>
                 <div className="flex-1">
-                  <CardTitle className="text-lg">{provider.name}</CardTitle>
+                  <CardTitle className="text-lg">{provider.full_name}</CardTitle>
                   <div className="flex items-center gap-2 mt-1">
-                    <div className="flex items-center gap-1">
-                      <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                      <span className="text-sm font-medium">{provider.rating}</span>
-                    </div>
                     <Badge variant="secondary" className="text-xs">
-                      {provider.experience}
+                      {provider.user_type}
                     </Badge>
                   </div>
                 </div>
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              <p className="text-sm text-muted-foreground">{provider.bio}</p>
+              <p className="text-sm text-muted-foreground">Service Provider</p>
               
               <div className="space-y-2 text-sm">
                 <div className="flex items-center gap-2">
                   <MapPin className="w-4 h-4 text-muted-foreground" />
-                  <span>{provider.location}</span>
+                  <span>{provider.address}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Phone className="w-4 h-4 text-muted-foreground" />
@@ -215,34 +341,78 @@ const ViewProviders = () => {
               </div>
 
               <div className="border-t pt-4">
-                <h4 className="font-medium mb-3">Available Services</h4>
-                <div className="space-y-3">
-                  {provider.services.map((service) => (
-                    <Card key={service.id} className="border-l-4 border-l-brand-primary">
-                      <CardContent className="p-3">
-                        <div className="flex items-start justify-between">
-                          <div className="space-y-1">
-                            <h5 className="font-medium text-sm">{service.name}</h5>
-                            <p className="text-xs text-muted-foreground">{service.description}</p>
-                            <Badge variant="outline" className="text-xs">
-                              {service.category}
-                            </Badge>
-                          </div>
-                          <div className="text-right">
-                            <div className="font-medium text-sm">₹{service.price}</div>
-                            <Button
-                              size="sm"
-                              onClick={() => handleBookService(service)}
-                              className="mt-2"
-                            >
-                              Book Now
-                            </Button>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+                <h4 className="font-medium mb-3">Provider Information</h4>
+                <div className="space-y-2 text-xs text-muted-foreground">
+                  <div>Joined: {new Date(provider.created_at).toLocaleDateString()}</div>
+                  <div>ID: {provider.id}</div>
+                  <div className="flex items-center gap-2">
+                    <span>Status:</span>
+                    <Badge 
+                      variant={
+                        provider.verification_status === 'approved' ? 'default' :
+                        provider.verification_status === 'rejected' ? 'destructive' : 'secondary'
+                      }
+                      className="text-xs"
+                    >
+                      {provider.verification_status}
+                    </Badge>
+                  </div>
                 </div>
+                
+                {/* Accept/Ignore Buttons - Show for all users */}
+                {provider.verification_status === 'pending' && (
+                  <div className="flex gap-2 mt-4">
+                    <Button
+                      size="sm"
+                      onClick={() => handleAcceptProvider(provider.id)}
+                      disabled={processingProvider === provider.id}
+                      className="bg-green-600 hover:bg-green-700 text-white disabled:opacity-50"
+                    >
+                      {processingProvider === provider.id ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                          Processing...
+                        </>
+                      ) : (
+                        "✅ Accept"
+                      )}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleIgnoreProvider(provider.id)}
+                      disabled={processingProvider === provider.id}
+                      className="border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                    >
+                      {processingProvider === provider.id ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600 mr-2"></div>
+                          Processing...
+                        </>
+                      ) : (
+                        "⚠️ Ignore"
+                      )}
+                    </Button>
+                  </div>
+                )}
+
+                {/* Show approved status */}
+                {provider.verification_status === 'approved' && (
+                  <div className="mt-4">
+                    <Badge variant="default" className="bg-green-100 text-green-800">
+                      ✅ Approved - Contact Details Visible
+                    </Badge>
+                  </div>
+                )}
+
+                {/* Show rejected status */}
+                {provider.verification_status === 'rejected' && (
+                  <div className="mt-4">
+                    <Badge variant="destructive">
+                      ❌ Rejected
+                    </Badge>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -259,21 +429,7 @@ const ViewProviders = () => {
         </div>
       )}
 
-      {/* Booking Modal */}
-      {selectedService && (
-        <BookingModal
-          isOpen={isBookingModalOpen}
-          onClose={handleCloseBookingModal}
-          service={{
-            id: selectedService.id,
-            name: selectedService.name,
-            provider: providers.find(p => p.services.some(s => s.id === selectedService.id))?.name || "",
-            price: selectedService.price,
-            location: providers.find(p => p.services.some(s => s.id === selectedService.id))?.location || "",
-            description: selectedService.description
-          }}
-        />
-      )}
+      {/* Booking Modal - Removed for now as it's not properly integrated */}
     </div>
   );
 };

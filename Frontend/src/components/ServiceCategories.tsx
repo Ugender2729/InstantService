@@ -1,21 +1,22 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
+import { Link } from "react-router-dom";
 
 const categories = [
   {
     id: "education",
-    title: "Education",
-    description: "Tutors, language teachers, skill trainers",
+    title: "Online Tuition",
+    description: "Highly qualified NITians, IITians & teachers for primary to advanced students",
     image: "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=800&h=600&fit=crop",
     color: "text-blue-600",
     bgColor: "bg-blue-50",
-    services: ["Personal Tutoring", "Language Teaching", "Skill Training", "Test Preparation"]
+    services: ["Primary Classes (1-5)", "Middle School (6-8)", "High School (9-12)", "IIT/JEE Preparation", "NEET Preparation", "Competitive Exams"]
   },
   {
     id: "household",
     title: "Household Help",
-    description: "Cleaning, cooking, maintenance services",
+    description: "Cleaning, cooking, maintenance services - Coming Soon!",
     image: "https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=800&h=600&fit=crop",
     color: "text-green-600",
     bgColor: "bg-green-50",
@@ -24,7 +25,7 @@ const categories = [
   {
     id: "events",
     title: "Events",
-    description: "Event planning, photography, decoration",
+    description: "Event planning, photography, decoration - Coming Soon!",
     image: "https://images.unsplash.com/photo-1511795409834-ef04bbd61622?w=800&h=600&fit=crop",
     color: "text-purple-600",
     bgColor: "bg-purple-50",
@@ -33,7 +34,7 @@ const categories = [
   {
     id: "travel",
     title: "Travel",
-    description: "Tour guides, travel assistance, local experts",
+    description: "Tour guides, travel assistance, local experts - Coming Soon!",
     image: "https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=800&h=600&fit=crop",
     color: "text-orange-600",
     bgColor: "bg-orange-50",
@@ -42,7 +43,7 @@ const categories = [
   {
     id: "shifting",
     title: "Shifting",
-    description: "Moving, packing, furniture assembly",
+    description: "Moving, packing, furniture assembly - Coming Soon!",
     image: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&h=600&fit=crop",
     color: "text-red-600",
     bgColor: "bg-red-50",
@@ -51,7 +52,7 @@ const categories = [
   {
     id: "business",
     title: "Business",
-    description: "Administrative, consulting, digital services",
+    description: "Administrative, consulting, digital services - Coming Soon!",
     image: "https://images.unsplash.com/photo-1552664730-d307ca884978?w=800&h=600&fit=crop",
     color: "text-indigo-600",
     bgColor: "bg-indigo-50",
@@ -108,23 +109,32 @@ const ServiceCategories = () => {
                     </div>
                   ))}
                 </div>
-                <Button 
-                  variant="outline-brand" 
-                  className="w-full group-hover:bg-brand-primary group-hover:text-brand-primary-foreground"
-                >
-                  View Providers
-                  <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
-                </Button>
+                {category.id === "education" ? (
+                  <Link to="/education" className="block">
+                    <Button 
+                      variant="outline-brand" 
+                      className="w-full group-hover:bg-brand-primary group-hover:text-brand-primary-foreground"
+                    >
+                      Start Learning
+                      <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
+                    </Button>
+                  </Link>
+                ) : (
+                  <Button 
+                    variant="outline" 
+                    className="w-full opacity-60 cursor-not-allowed"
+                    disabled
+                  >
+                    Coming Soon
+                    <ArrowRight className="w-4 h-4 ml-2" />
+                  </Button>
+                )}
               </CardContent>
             </Card>
           ))}
         </div>
 
-        <div className="text-center mt-16">
-          <Button variant="brand" size="lg">
-            Browse All Services
-          </Button>
-        </div>
+
       </div>
     </section>
   );

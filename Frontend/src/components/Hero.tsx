@@ -75,17 +75,27 @@ const Hero = () => {
 
             {/* CTA Buttons */}
             <div className="flex flex-col sm:flex-row gap-4">
-              <Link to="/find-services">
-                <Button variant="hero" size="xl" className="group">
-                  Find Services
-                  <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                </Button>
-              </Link>
-              <Link to="/become-provider">
-                <Button variant="outline-brand" size="xl">
-                  Become a Provider
-                </Button>
-              </Link>
+              <div className="flex flex-col items-center sm:items-start gap-2">
+                <Link to="/find-services">
+                  <Button variant="hero" size="xl" className="group">
+                    Find Services
+                    <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                  </Button>
+                </Link>
+                <Link to="/customer/signup" className="text-sm text-muted-foreground hover:text-brand-primary transition-colors">
+                  Sign up to book services
+                </Link>
+              </div>
+              <div className="flex flex-col items-center sm:items-start gap-2">
+                <Link to="/become-provider">
+                  <Button variant="outline-brand" size="xl">
+                    Become a Provider
+                  </Button>
+                </Link>
+                <Link to="/provider/signup" className="text-sm text-muted-foreground hover:text-brand-primary transition-colors">
+                  Sign up to offer services
+                </Link>
+              </div>
             </div>
 
             {/* Social Proof */}

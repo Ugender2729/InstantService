@@ -27,37 +27,21 @@ interface User {
   email: string;
   full_name: string;
   phone: string | null;
+  address: string;
   user_type: 'customer' | 'provider' | 'admin';
+  verification_status: 'pending' | 'approved' | 'rejected';
   created_at: string;
   updated_at: string;
 }
 
-interface Provider {
-  id: string;
-  user_id: string;
-  business_name: string;
-  description: string | null;
-  address: string | null;
-  city: string | null;
-  state: string | null;
-  zip_code: string | null;
-  hourly_rate: number | null;
-  is_verified: boolean;
-  is_available: boolean;
-  created_at: string;
-  user: User;
-}
-
 const UserVerificationTable = () => {
   const [users, setUsers] = useState<User[]>([]);
-  const [providers, setProviders] = useState<Provider[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedTab, setSelectedTab] = useState("customers");
 
   useEffect(() => {
     fetchUsers();
-    fetchProviders();
   }, []);
 
   const fetchUsers = async () => {
@@ -76,52 +60,19 @@ const UserVerificationTable = () => {
     }
   };
 
-  const fetchProviders = async () => {
-    try {
-      const { data, error } = await supabaseAdmin
-        .from('providers')
-        .select(`
-          *,
-          user:users(id, email, full_name, phone, user_type, created_at)
-        `)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setProviders(data || []);
-    } catch (error) {
-      console.error('Error fetching providers:', error);
-    }
-  };
-
-  const handleVerifyProvider = async (providerId: string) => {
+  const handleVerification = async (userId: string, status: 'approved' | 'rejected') => {
     try {
       const { error } = await supabaseAdmin
-        .from('providers')
-        .update({ is_verified: true })
-        .eq('id', providerId);
+        .from('users')
+        .update({ verification_status: status })
+        .eq('id', userId);
 
       if (error) throw error;
       
-      // Refresh providers list
-      fetchProviders();
+      // Refresh users list
+      fetchUsers();
     } catch (error) {
-      console.error('Error verifying provider:', error);
-    }
-  };
-
-  const handleUnverifyProvider = async (providerId: string) => {
-    try {
-      const { error } = await supabaseAdmin
-        .from('providers')
-        .update({ is_verified: false })
-        .eq('id', providerId);
-
-      if (error) throw error;
-      
-      // Refresh providers list
-      fetchProviders();
-    } catch (error) {
-      console.error('Error unverifying provider:', error);
+      console.error('Error updating verification status:', error);
     }
   };
 
@@ -132,17 +83,20 @@ const UserVerificationTable = () => {
     user.user_type.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const filteredProviders = providers.filter(provider => 
-    provider.business_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    provider.user.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    provider.user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    provider.address?.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredProviders = users.filter(user => 
+    user.user_type === 'provider' && (
+      user.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.address?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (user.phone ? user.phone.includes(searchTerm) : false)
+    )
   );
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'verified': return 'bg-green-100 text-green-800';
-      case 'unverified': return 'bg-yellow-100 text-yellow-800';
+      case 'approved': return 'bg-green-100 text-green-800';
+      case 'rejected': return 'bg-red-100 text-red-800';
+      case 'pending': return 'bg-yellow-100 text-yellow-800';
       case 'admin': return 'bg-purple-100 text-purple-800';
       case 'customer': return 'bg-blue-100 text-blue-800';
       case 'provider': return 'bg-orange-100 text-orange-800';
@@ -186,7 +140,7 @@ const UserVerificationTable = () => {
       <Tabs value={selectedTab} onValueChange={setSelectedTab}>
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="customers">Customers ({users.filter(u => u.user_type === 'customer').length})</TabsTrigger>
-          <TabsTrigger value="providers">Service Providers ({providers.length})</TabsTrigger>
+          <TabsTrigger value="providers">Service Providers ({users.filter(u => u.user_type === 'provider').length})</TabsTrigger>
           <TabsTrigger value="all">All Users ({users.length})</TabsTrigger>
         </TabsList>
 
@@ -291,41 +245,29 @@ const UserVerificationTable = () => {
                         <div className="flex items-start justify-between">
                           <div className="space-y-3 flex-1">
                             <div className="flex items-center gap-3">
-                              <h3 className="font-semibold text-lg">{provider.business_name}</h3>
-                              <Badge className={getStatusColor(provider.is_verified ? 'verified' : 'unverified')}>
-                                {provider.is_verified ? 'Verified' : 'Unverified'}
+                              <h3 className="font-semibold text-lg">{provider.full_name}</h3>
+                              <Badge className={getStatusColor(provider.verification_status)}>
+                                {provider.verification_status}
                               </Badge>
                             </div>
-                            
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                               <div className="space-y-2">
                                 <div className="flex items-center gap-2">
-                                  <Users className="w-4 h-4 text-muted-foreground" />
-                                  <span className="font-medium">Owner:</span>
-                                  <span>{provider.user.full_name}</span>
-                                </div>
-                                <div className="flex items-center gap-2">
                                   <Mail className="w-4 h-4 text-muted-foreground" />
                                   <span className="font-medium">Email:</span>
-                                  <span>{provider.user.email}</span>
+                                  <span>{provider.email}</span>
                                 </div>
                                 <div className="flex items-center gap-2">
                                   <Phone className="w-4 h-4 text-muted-foreground" />
                                   <span className="font-medium">Phone:</span>
-                                  <span>{provider.user.phone || 'Not provided'}</span>
+                                  <span>{provider.phone || 'Not provided'}</span>
                                 </div>
                               </div>
-                              
                               <div className="space-y-2">
                                 <div className="flex items-center gap-2">
                                   <MapPin className="w-4 h-4 text-muted-foreground" />
                                   <span className="font-medium">Address:</span>
                                   <span>{provider.address || 'Not provided'}</span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <DollarSign className="w-4 h-4 text-muted-foreground" />
-                                  <span className="font-medium">Rate:</span>
-                                  <span>₹{provider.hourly_rate || 'Not set'}/hr</span>
                                 </div>
                                 <div className="flex items-center gap-2">
                                   <Calendar className="w-4 h-4 text-muted-foreground" />
@@ -334,33 +276,26 @@ const UserVerificationTable = () => {
                                 </div>
                               </div>
                             </div>
-                            
-                            {provider.description && (
-                              <div className="text-sm text-muted-foreground">
-                                <span className="font-medium">Description:</span> {provider.description}
-                              </div>
-                            )}
                           </div>
-                          
                           <div className="flex items-center gap-2 ml-4">
-                            {provider.is_verified ? (
+                            {provider.verification_status === 'approved' ? (
                               <Button 
                                 variant="outline" 
                                 size="sm"
-                                onClick={() => handleUnverifyProvider(provider.id)}
-                                className="text-yellow-600 border-yellow-600 hover:bg-yellow-50"
+                                onClick={() => handleVerification(provider.id, 'rejected')}
+                                className="text-red-600 border-red-600 hover:bg-red-50"
                               >
                                 <XCircle className="w-4 h-4 mr-1" />
-                                Unverify
+                                Reject
                               </Button>
                             ) : (
                               <Button 
                                 size="sm"
-                                onClick={() => handleVerifyProvider(provider.id)}
+                                onClick={() => handleVerification(provider.id, 'approved')}
                                 className="bg-green-600 hover:bg-green-700"
                               >
                                 <CheckCircle className="w-4 h-4 mr-1" />
-                                Verify
+                                Approve
                               </Button>
                             )}
                           </div>

@@ -28,9 +28,6 @@ const Header = () => {
 
         {/* Desktop Navigation */}
         <nav className="hidden md:flex items-center space-x-8">
-          <Link to="/find-services" className="text-muted-foreground hover:text-brand-primary transition-colors">
-            Services
-          </Link>
           {isAuthenticated && (
             <Link to="/view-providers" className="text-muted-foreground hover:text-brand-primary transition-colors flex items-center gap-1">
               <Users className="w-4 h-4" />
@@ -56,12 +53,28 @@ const Header = () => {
         <div className="hidden md:flex items-center space-x-3">
           {isAuthenticated ? (
             <>
-              <Link to="/dashboard">
-                <Button variant="ghost" size="sm">
-                  <LayoutDashboard className="w-4 h-4 mr-2" />
+              {/* Dashboard Dropdown */}
+              <div className="relative group">
+                <Button variant="ghost" size="sm" className="flex items-center gap-2">
+                  <LayoutDashboard className="w-4 h-4" />
                   Dashboard
+                  <svg className="w-4 h-4 transition-transform group-hover:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
                 </Button>
-              </Link>
+                <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg border border-gray-200 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                  <div className="py-1">
+                    <Link to="/dashboard" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                      <User className="w-4 h-4 mr-2 inline" />
+                      Customer Dashboard
+                    </Link>
+                    <Link to="/provider/dashboard" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                      <Users className="w-4 h-4 mr-2 inline" />
+                      Provider Dashboard
+                    </Link>
+                  </div>
+                </div>
+              </div>
               <div className="flex items-center space-x-2">
                 <span className="text-sm text-muted-foreground">
                   Welcome, {user?.name}
@@ -74,7 +87,7 @@ const Header = () => {
             </>
           ) : (
             <>
-              <Link to="/signin">
+              <Link to="/choose-type">
                 <Button variant="ghost" size="sm">
                   <User className="w-4 h-4 mr-2" />
                   Sign In
@@ -105,9 +118,6 @@ const Header = () => {
         <div className="md:hidden border-t border-border bg-background">
           <div className="container mx-auto px-4 py-4 space-y-4">
             <nav className="flex flex-col space-y-3">
-              <Link to="/find-services" className="text-muted-foreground hover:text-brand-primary transition-colors">
-                Services
-              </Link>
               {isAuthenticated && (
                 <Link to="/view-providers" className="text-muted-foreground hover:text-brand-primary transition-colors flex items-center gap-1">
                   <Users className="w-4 h-4" />
@@ -131,12 +141,20 @@ const Header = () => {
             <div className="flex flex-col space-y-2 pt-4 border-t border-border">
               {isAuthenticated ? (
                 <>
-                  <Link to="/dashboard">
-                    <Button variant="ghost" size="sm" className="justify-start w-full">
-                      <LayoutDashboard className="w-4 h-4 mr-2" />
-                      Dashboard
-                    </Button>
-                  </Link>
+                  <div className="space-y-2">
+                    <Link to="/dashboard">
+                      <Button variant="ghost" size="sm" className="justify-start w-full">
+                        <User className="w-4 h-4 mr-2" />
+                        Customer Dashboard
+                      </Button>
+                    </Link>
+                    <Link to="/provider/dashboard">
+                      <Button variant="ghost" size="sm" className="justify-start w-full">
+                        <Users className="w-4 h-4 mr-2" />
+                        Provider Dashboard
+                      </Button>
+                    </Link>
+                  </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">
                       Welcome, {user?.name}
@@ -149,7 +167,7 @@ const Header = () => {
                 </>
               ) : (
                 <>
-                  <Link to="/signin">
+                  <Link to="/choose-type">
                     <Button variant="ghost" size="sm" className="justify-start w-full">
                       <User className="w-4 h-4 mr-2" />
                       Sign In

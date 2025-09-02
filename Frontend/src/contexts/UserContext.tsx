@@ -6,7 +6,7 @@ export interface User {
   email: string;
   phone: string;
   address: string;
-  type: 'user' | 'provider';
+  type: 'customer' | 'provider' | 'admin';
   skills?: string;
   isAuthenticated: boolean;
 }
@@ -16,7 +16,7 @@ interface UserContextType {
   login: (userData: Omit<User, 'isAuthenticated'>) => void;
   logout: () => void;
   isAuthenticated: boolean;
-  userType: 'user' | 'provider' | null;
+  userType: 'customer' | 'provider' | 'admin' | null;
   // Add function to save user data
   saveUserData: (userData: Omit<User, 'isAuthenticated'>) => void;
   getAllUsers: () => User[];

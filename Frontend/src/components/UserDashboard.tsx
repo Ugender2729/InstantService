@@ -166,7 +166,7 @@ const UserDashboard = () => {
                               <div className="flex items-center gap-2">
                                 <User className="w-4 h-4" />
                                 <span>
-                                  {user?.type === 'user' ? `Provider: ${booking.providerName}` : `Customer: ${booking.customerName}`}
+                                  {user?.type === 'customer' ? `Provider: ${booking.providerName}` : `Customer: ${booking.customerName}`}
                                 </span>
                               </div>
                               <div className="flex items-center gap-2">
@@ -184,7 +184,7 @@ const UserDashboard = () => {
                               {showPhoneNumbers && (
                                 <div className="flex items-center gap-2">
                                   <span className="text-xs bg-muted px-2 py-1 rounded">
-                                    {user?.type === 'user' ? `Provider: ${booking.providerPhone}` : `Customer: ${booking.customerPhone}`}
+                                    {user?.type === 'customer' ? `Provider: ${booking.providerPhone}` : `Customer: ${booking.customerPhone}`}
                                   </span>
                                 </div>
                               )}

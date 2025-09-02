@@ -1,228 +1,329 @@
+import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Link, useNavigate } from "react-router-dom";
-import { useState } from "react";
-import { useUser } from "@/contexts/UserContext";
-import { useNotifications } from "@/contexts/NotificationContext";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase";
+import { useUser } from "@/contexts/UserContext";
+import { Eye, EyeOff, Mail, Lock, ArrowLeft } from "lucide-react";
 
 const SignIn = () => {
-  const navigate = useNavigate();
-  const { login } = useUser();
-  const { addNotification } = useNotifications();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [forgotPasswordMode, setForgotPasswordMode] = useState(false);
+  const [resetEmailSent, setResetEmailSent] = useState(false);
   const { toast } = useToast();
-  const [formData, setFormData] = useState({
-    email: "",
-    password: ""
-  });
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [isLoading, setIsLoading] = useState(false);
+  const { login } = useUser();
+  const navigate = useNavigate();
 
-  const validateForm = () => {
-    const newErrors: Record<string, string> = {};
-
-    if (!formData.email.trim()) {
-      newErrors.email = "Email is required";
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      newErrors.email = "Please enter a valid email address";
-    }
-
-    if (!formData.password.trim()) {
-      newErrors.password = "Password is required";
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (validateForm()) {
-      setIsLoading(true);
-      try {
-        // Use Supabase authentication
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email: formData.email,
-          password: formData.password
-        });
+    
+    if (!email || !password) {
+      toast({
+        title: "❌ Missing Information",
+        description: "Please enter both email and password",
+        variant: "destructive",
+      });
+      return;
+    }
 
-        if (error) {
-          throw error;
-        }
+    setLoading(true);
 
-        if (data.user) {
-          // Get user profile from users table
-          const { data: profileData, error: profileError } = await supabase
-            .from('users')
-            .select('*')
-            .eq('id', data.user.id)
-            .single();
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-          if (profileError && profileError.code !== 'PGRST116') {
-            console.error('Error fetching profile:', profileError);
-          }
+      if (error) throw error;
 
-          // Create user data for context
-          const userData = {
-            id: data.user.id,
-            name: profileData?.full_name || data.user.email?.split('@')[0] || 'User',
-            email: data.user.email || '',
-            phone: profileData?.phone || '',
-            address: '',
-            type: profileData?.user_type || 'customer' as const,
-            skills: [],
-          };
+      // Get user profile data
+      const { data: profileData, error: profileError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', data.user.id)
+        .single();
 
-          // Login user
-          login(userData);
+      if (profileError) throw profileError;
 
-          // Show success popup
+      // Login with user context
+      await login({
+        id: data.user.id,
+        name: profileData.full_name,
+        email: data.user.email!,
+        phone: profileData.phone,
+        address: profileData.address || '',
+        type: profileData.user_type === 'provider' ? 'provider' : 'customer',
+        skills: '',
+          });
+
           toast({
-            title: "🎉 Login Successful!",
-            description: `Welcome back, ${userData.name}! You have been successfully signed in.`,
+        title: "✅ Welcome Back!",
+        description: `Successfully signed in as ${profileData.full_name}`,
             variant: "default",
           });
           
-          addNotification({
-            type: 'success',
-            title: 'Login Successful!',
-            message: `Welcome back, ${userData.name}! You have been successfully signed in.`,
-          });
-
-          // Redirect based on user type
-          if (profileData?.user_type === 'provider') {
-            navigate('/become-provider');
-          } else {
-            navigate('/view-providers');
-          }
-        }
-      } catch (error: any) {
-        console.error('Login error:', error);
-        
-        let errorMessage = 'Login failed. Please try again.';
-        if (error.message) {
-          if (error.message.includes('Invalid login credentials')) {
-            errorMessage = 'Invalid email or password. Please try again.';
-          } else if (error.message.includes('Email not confirmed')) {
-            errorMessage = 'Please check your email and confirm your account.';
-          }
-        }
-
-        toast({
-          title: "❌ Login Failed",
-          description: errorMessage,
-          variant: "destructive",
-        });
-        
-        addNotification({
-          type: 'error',
-          title: 'Login Failed',
-          message: errorMessage,
-        });
-      } finally {
-        setIsLoading(false);
+      // Redirect based on user type
+      if (profileData.user_type === 'provider') {
+        navigate('/provider/dashboard');
+        } else {
+        navigate('/dashboard');
       }
+
+    } catch (error: any) {
+      console.error('Sign in error:', error);
+      
+      let errorMessage = "Failed to sign in. Please try again.";
+      
+      if (error.message.includes('Invalid login credentials')) {
+        errorMessage = "Invalid email or password. Please check your credentials.";
+      } else if (error.message.includes('Too many requests')) {
+        errorMessage = "Too many login attempts. Please try again later.";
+      }
+
+            toast({
+        title: "❌ Login Failed",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
     
-    // Clear error when user starts typing
-    if (errors[name]) {
-      setErrors(prev => ({
-        ...prev,
-        [name]: ''
-      }));
+    if (!email) {
+            toast({
+        title: "❌ Email Required",
+        description: "Please enter your email address to reset password",
+              variant: "destructive",
+            });
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+
+      if (error) throw error;
+
+      setResetEmailSent(true);
+        toast({
+        title: "✅ Reset Email Sent!",
+        description: "Check your email for password reset instructions",
+        variant: "default",
+      });
+
+    } catch (error: any) {
+      console.error('Password reset error:', error);
+      toast({
+        title: "❌ Reset Failed",
+        description: "Failed to send reset email. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
     }
   };
+
+  const handleBackToSignIn = () => {
+    setForgotPasswordMode(false);
+    setResetEmailSent(false);
+  };
+
+  if (forgotPasswordMode) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md bg-white/95 backdrop-blur-sm shadow-2xl">
+          <CardHeader className="text-center space-y-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleBackToSignIn}
+              className="absolute left-4 top-4"
+            >
+              <ArrowLeft className="w-4 h-4 mr-1" />
+              Back
+            </Button>
+            <CardTitle className="text-2xl font-bold text-gray-900">Forgot Password?</CardTitle>
+            <CardDescription className="text-gray-600">
+              {resetEmailSent 
+                ? "Check your email for reset instructions"
+                : "Enter your email to receive password reset instructions"
+              }
+            </CardDescription>
+          </CardHeader>
+          
+          <CardContent className="space-y-4">
+            {!resetEmailSent ? (
+              <form onSubmit={handleForgotPassword} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="reset-email">Email Address</Label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="reset-email"
+                      type="email"
+                      placeholder="Enter your email address"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="pl-10"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <Button 
+                  type="submit" 
+                  className="w-full bg-blue-600 hover:bg-blue-700"
+                  disabled={loading}
+                >
+                  {loading ? 'Sending Reset Email...' : 'Send Reset Email'}
+                </Button>
+              </form>
+            ) : (
+              <div className="text-center space-y-4">
+                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto">
+                  <Mail className="w-8 h-8 text-green-600" />
+                </div>
+                <div>
+                  <h3 className="font-medium text-gray-900 mb-2">Reset Email Sent!</h3>
+                  <p className="text-sm text-gray-600 mb-4">
+                    We've sent password reset instructions to <strong>{email}</strong>
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    Check your spam folder if you don't see it in your inbox
+                  </p>
+                </div>
+                <Button 
+                  onClick={handleBackToSignIn}
+                  variant="outline"
+                  className="w-full"
+                >
+                  Back to Sign In
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4">
       <Card className="w-full max-w-md bg-white/95 backdrop-blur-sm shadow-2xl">
         <CardHeader className="text-center space-y-2">
-          <CardTitle className="text-3xl font-bold text-gray-900">Welcome Back</CardTitle>
+          <CardTitle className="text-2xl font-bold text-gray-900">Welcome Back</CardTitle>
           <CardDescription className="text-gray-600">
             Sign in to your InstaServe account
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+        
+          <CardContent className="space-y-4">
+          <form onSubmit={handleSignIn} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-gray-700 font-medium">
-                Email Address
-              </Label>
-              <Input
-                id="email"
-                name="email"
-                type="email"
-                placeholder="Enter your email"
-                value={formData.email}
-                onChange={handleInputChange}
-                className={`w-full ${errors.email ? 'border-red-500' : 'border-gray-300'}`}
-                required
-              />
-              {errors.email && (
-                <p className="text-red-500 text-sm">{errors.email}</p>
-              )}
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="password" className="text-gray-700 font-medium">
-                Password
-              </Label>
-              <Input
-                id="password"
-                name="password"
-                type="password"
-                placeholder="Enter your password"
-                value={formData.password}
-                onChange={handleInputChange}
-                className={`w-full ${errors.password ? 'border-red-500' : 'border-gray-300'}`}
-                required
-              />
-              {errors.password && (
-                <p className="text-red-500 text-sm">{errors.password}</p>
-              )}
+              <Label htmlFor="email">Email Address</Label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              <Input 
+                id="email" 
+                type="email" 
+                  placeholder="Enter your email address"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="pl-10"
+                  required
+                />
+              </div>
             </div>
 
-            <Button
-              type="submit"
-              className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold py-3 rounded-lg transition-all duration-200 transform hover:scale-105"
-              disabled={isLoading}
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              <Input 
+                id="password" 
+                  type={showPassword ? "text" : "password"}
+                placeholder="Enter your password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="pl-10 pr-10"
+                  required
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                  onClick={() => setShowPassword(!showPassword)}
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4 text-muted-foreground" />
+                  ) : (
+                    <Eye className="h-4 w-4 text-muted-foreground" />
+                  )}
+                </Button>
+              </div>
+            </div>
+
+            <Button 
+              type="submit" 
+              className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+              disabled={loading}
             >
-              {isLoading ? "Signing In..." : "Sign In"}
+              {loading ? 'Signing In...' : 'Sign In'}
             </Button>
           </form>
 
-          <div className="mt-6 text-center">
-            <p className="text-gray-600">
-              Don't have an account?{" "}
-              <Link
-                to="/get-started"
-                className="text-purple-600 hover:text-purple-700 font-semibold transition-colors"
-              >
+          {/* Forgot Password Link */}
+          <div className="text-center">
+            <Button
+              variant="link"
+              className="text-sm text-gray-600 hover:text-blue-600 p-0 h-auto"
+              onClick={() => setForgotPasswordMode(true)}
+            >
+              Forgot your password?
+            </Button>
+              </div>
+
+          {/* Divider */}
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t border-gray-300" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-white px-2 text-gray-500">Or</span>
+            </div>
+          </div>
+
+          {/* Sign Up Link */}
+            <div className="text-center">
+            <p className="text-sm text-gray-600">
+              Don't have an account?{' '}
+              <Link to="/get-started" className="text-purple-600 hover:text-purple-700 font-medium">
                 Sign up here
               </Link>
             </p>
           </div>
 
-          <div className="mt-4 text-center">
-            <Link
-              to="/admin/login"
-              className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
-            >
+          {/* Admin Login Link */}
+          <div className="text-center pt-2">
+            <Link to="/admin/login" className="text-sm text-gray-500 hover:text-gray-700">
               Admin Login
-            </Link>
-          </div>
-        </CardContent>
+              </Link>
+            </div>
+          </CardContent>
       </Card>
     </div>
   );

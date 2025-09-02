@@ -118,6 +118,28 @@ const GetStarted = () => {
     e.preventDefault();
     if (validateUserForm()) {
       try {
+        // First check if email already exists in users table
+        console.log('Checking if email exists:', userForm.email);
+        const { data: existingUser, error: checkError } = await supabase
+          .from('users')
+          .select('id, email')
+          .eq('email', userForm.email.toLowerCase())
+          .single();
+
+        if (existingUser) {
+          toast({
+            title: "❌ Email Already Exists",
+            description: "An account with this email already exists. Please try signing in instead.",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        if (checkError && checkError.code !== 'PGRST116') { // PGRST116 = no rows returned
+          console.error('Error checking email:', checkError);
+        }
+
+        console.log('Email is available, proceeding with registration');
         // Use Supabase authentication
         const { data, error } = await supabase.auth.signUp({
           email: userForm.email,
@@ -144,6 +166,7 @@ const GetStarted = () => {
               email: userForm.email,
               full_name: userForm.name,
               phone: userForm.phone,
+              address: userForm.address,
               user_type: 'customer'
             });
 
@@ -157,26 +180,38 @@ const GetStarted = () => {
             email: userForm.email,
             phone: userForm.phone,
             address: userForm.address,
-            type: 'user' as const,
+            type: 'customer' as const,
             skills: userForm.skillsNeeded,
           };
           
-          saveUserData(userData);
+          // Automatically log in the user after successful signup
+          await saveUserData(userData);
           
           // Show success popup
           toast({
             title: "🎉 Welcome to InstaServe!",
-            description: "Your account has been created successfully! Please check your email to confirm your account. You can now browse and book services.",
+            description: "Your account has been created successfully! You are now logged in and can browse and book services.",
             variant: "default",
           });
           
           addNotification({
             type: 'info',
             title: 'Welcome to InstaServe!',
-            message: 'Your account has been created successfully! Please check your email to confirm your account.',
+            message: 'Your account has been created successfully! You are now logged in.',
           });
           
-          navigate('/find-services');
+          // Clear the form
+          setUserForm({
+            name: "",
+            email: "",
+            phone: "",
+            address: "",
+            skillsNeeded: "",
+            password: ""
+          });
+          
+          // Redirect to customer dashboard (immediate access)
+          navigate('/dashboard');
         }
       } catch (error: any) {
         console.error('Signup error:', error);
@@ -189,8 +224,6 @@ const GetStarted = () => {
             errorMessage = 'Password must be at least 6 characters long.';
           } else if (error.message.includes('Invalid email')) {
             errorMessage = 'Please enter a valid email address.';
-          } else if (error.message.includes('Email not confirmed')) {
-            errorMessage = 'Please check your email and click the confirmation link.';
           } else {
             errorMessage = `Registration error: ${error.message}`;
           }
@@ -215,10 +248,31 @@ const GetStarted = () => {
     e.preventDefault();
     if (validateProviderForm()) {
       try {
-        // Use Supabase authentication
-        const { data, error } = await supabase.auth.signUp({
+        // First check if email already exists in users table
+        console.log('Checking if email exists:', providerForm.email);
+        const { data: existingUser, error: checkError } = await supabase
+          .from('users')
+          .select('id, email')
+          .eq('email', providerForm.email.toLowerCase())
+          .single();
+
+        if (existingUser) {
+          toast({
+            title: "❌ Email Already Exists",
+            description: "An account with this email already exists. Please try signing in instead.",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        if (checkError && checkError.code !== 'PGRST116') { // PGRST116 = no rows returned
+          console.error('Error checking email:', checkError);
+        }
+
+        console.log('Email is available, proceeding with registration');
+        console.log('Attempting Supabase Auth signup with:', {
           email: providerForm.email,
-          password: providerForm.password, // Use providerForm.password
+          password: providerForm.password,
           options: {
             data: {
               full_name: providerForm.name,
@@ -228,25 +282,62 @@ const GetStarted = () => {
           }
         });
 
+        // Use Supabase authentication
+        const { data, error } = await supabase.auth.signUp({
+          email: providerForm.email,
+          password: providerForm.password,
+          options: {
+            data: {
+              full_name: providerForm.name,
+              phone: providerForm.phone,
+              user_type: 'provider'
+            }
+          }
+        });
+
+        console.log('Supabase Auth response:', { data, error });
+
         if (error) {
           throw error;
         }
 
         if (data.user) {
+          console.log('Creating user profile with data:', {
+            id: data.user.id,
+            email: providerForm.email,
+            full_name: providerForm.name,
+            phone: providerForm.phone,
+            address: providerForm.address,
+            user_type: 'provider'
+          });
+
           // Create user profile in users table
-          const { error: profileError } = await supabase
+          const { data: profileData, error: profileError } = await supabase
             .from('users')
             .insert({
               id: data.user.id,
               email: providerForm.email,
               full_name: providerForm.name,
               phone: providerForm.phone,
-              user_type: 'provider'
-            });
+              address: providerForm.address,
+              user_type: 'provider',
+              verification_status: 'pending'
+            })
+            .select()
+            .single();
+
+          console.log('Profile creation response:', { profileData, profileError });
 
           if (profileError) {
             console.error('Error creating profile:', profileError);
+            console.error('Profile error details:', profileError.message);
+            console.error('Profile error code:', profileError.code);
+            console.error('Profile error details:', profileError.details);
+            console.error('Profile error hint:', profileError.hint);
+            throw profileError;
           }
+
+          console.log('Profile created successfully:', profileData);
 
           const userData = {
             id: data.user.id,
@@ -258,32 +349,54 @@ const GetStarted = () => {
             skills: providerForm.skills,
           };
           
-          saveUserData(userData);
+          // Automatically log in the provider after successful signup
+          await saveUserData(userData);
           
           // Show success popup
           toast({
             title: "🎉 Provider Account Created!",
-            description: "Your provider account has been created successfully! Please check your email to confirm your account. You can now set up your service offerings.",
+            description: "Your provider account has been created successfully! You are now logged in and can set up your service offerings.",
             variant: "default",
           });
           
           addNotification({
-            type: 'success',
+            type: 'info',
             title: 'Provider Account Created!',
-            message: 'Your provider account has been created successfully! Please check your email to confirm your account.',
+            message: 'Your provider account has been created successfully! You are now logged in.',
           });
           
-          navigate('/become-provider');
+          // Clear the form
+          setProviderForm({
+            name: "",
+            email: "",
+            phone: "",
+            address: "",
+            skills: "",
+            password: ""
+          });
+          
+          // Redirect to provider dashboard (immediate access)
+          navigate('/provider/dashboard');
         }
       } catch (error: any) {
         console.error('Provider signup error:', error);
+        console.error('Error details:', error.message);
+        console.error('Error code:', error.code);
+        console.error('Error details:', error.details);
+        console.error('Error hint:', error.hint);
         
         let errorMessage = 'Failed to create provider account. Please try again.';
         if (error.message) {
-          if (error.message.includes('User already registered')) {
+          if (error.message.includes('User already registered') || error.message.includes('already registered')) {
             errorMessage = 'An account with this email already exists. Please try signing in instead.';
           } else if (error.message.includes('Password should be at least')) {
             errorMessage = 'Password must be at least 6 characters long.';
+          } else if (error.message.includes('address')) {
+            errorMessage = 'Address field error: ' + error.message;
+          } else if (error.message.includes('verification_status')) {
+            errorMessage = 'Verification status error: ' + error.message;
+          } else if (error.message.includes('email')) {
+            errorMessage = 'Email error: ' + error.message;
           }
         }
 
@@ -294,7 +407,7 @@ const GetStarted = () => {
         });
         
         addNotification({
-          type: 'error',
+          type: 'info',
           title: 'Provider Registration Failed',
           message: errorMessage,
         });
@@ -486,6 +599,21 @@ const GetStarted = () => {
                 </div>
 
                 <div className="space-y-2">
+                  <Label htmlFor="provider-password">Password *</Label>
+                  <Input
+                    id="provider-password"
+                    type="password"
+                    placeholder="Enter a password (min 6 characters)"
+                    value={providerForm.password}
+                    onChange={(e) => setProviderForm({...providerForm, password: e.target.value})}
+                    className={providerErrors.password ? "border-red-500" : ""}
+                  />
+                  {providerErrors.password && (
+                    <p className="text-xs text-red-500">{providerErrors.password}</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
                   <Label htmlFor="provider-skills">Your Skills & Services *</Label>
                   <Textarea
                     id="provider-skills"
@@ -508,7 +636,43 @@ const GetStarted = () => {
             </TabsContent>
           </Tabs>
 
-          <div className="text-center mt-6">
+          <div className="text-center mt-6 space-y-4">
+            <div className="flex justify-center gap-4">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={async () => {
+                  try {
+                    const { data, error } = await supabase
+                      .from('users')
+                      .select('count')
+                      .limit(1);
+                    
+                    if (error) {
+                      toast({
+                        title: "❌ Database Error",
+                        description: `Error: ${error.message}`,
+                        variant: "destructive",
+                      });
+                    } else {
+                      toast({
+                        title: "✅ Database Connected",
+                        description: "Successfully connected to Supabase database",
+                        variant: "default",
+                      });
+                    }
+                  } catch (err) {
+                    toast({
+                      title: "❌ Connection Failed",
+                      description: "Failed to connect to database",
+                      variant: "destructive",
+                    });
+                  }
+                }}
+              >
+                Test Database Connection
+              </Button>
+            </div>
             <Link to="/" className="text-sm text-muted-foreground hover:text-brand-primary">
               ← Back to Home
             </Link>
