@@ -88,3 +88,4 @@ WHERE tablename = 'users';
 GRANT ALL ON users TO authenticated;
 GRANT ALL ON users TO service_role;
 GRANT USAGE ON SCHEMA public TO authenticated;
+

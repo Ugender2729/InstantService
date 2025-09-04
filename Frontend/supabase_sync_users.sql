@@ -79,3 +79,4 @@ WHERE email IN (
     SELECT email FROM users WHERE user_type = 'provider'
 )
 ORDER BY created_at DESC;
+

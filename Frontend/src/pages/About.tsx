@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Users, Shield, Clock, Star, Award, Target, Heart } from "lucide-react";
+import { Users, Shield, Clock, Star, Award, Target, Heart, GraduationCap, BookOpen, Lightbulb } from "lucide-react";
 import { Link } from "react-router-dom";
 
 const About = () => {
@@ -35,21 +35,44 @@ const About = () => {
     }
   ];
 
+  const tuitionFeatures = [
+    {
+      icon: GraduationCap,
+      title: "Top Mentors from IITs & NITs",
+      description: "Learn from the brightest minds who graduated from India's premier institutes"
+    },
+    {
+      icon: BookOpen,
+      title: "Personalized Tuition",
+      description: "Tailored learning experience designed to meet your unique educational needs"
+    },
+    {
+      icon: Lightbulb,
+      title: "Future-Ready Learning",
+      description: "Comprehensive curriculum that prepares students for tomorrow's challenges"
+    },
+    {
+      icon: Star,
+      title: "Trusted by Parents",
+      description: "Loved by students with mentorship from India's best institutes"
+    }
+  ];
+
   const team = [
     {
-      name: "Rahul Sharma",
-      role: "Founder & CEO",
-      description: "Former tech executive with 15+ years in service industry"
+      name: "IIT Alumni Team",
+      role: "3 IITians",
+      description: "Graduates from India's most prestigious engineering institutes"
     },
     {
-      name: "Priya Patel",
-      role: "Head of Operations",
-      description: "Expert in customer experience and service quality management"
+      name: "NIT Alumni Team", 
+      role: "2 NITians",
+      description: "Experts from National Institutes of Technology"
     },
     {
-      name: "Amit Kumar",
-      role: "CTO",
-      description: "Technology leader focused on building scalable platforms"
+      name: "Education Vision",
+      role: "Our Mission",
+      description: "Providing quality education online with experienced teachers at affordable prices"
     }
   ];
 
@@ -65,6 +88,57 @@ const About = () => {
             Connecting skilled professionals with customers who need quality services. 
             We're building India's most trusted platform for full-day professional services.
           </p>
+        </div>
+
+        {/* Tuition Service Section */}
+        <div className="mb-16">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold text-foreground mb-4">
+              Excel in Studies with Guidance from IIT & NIT Graduates
+            </h2>
+            <p className="text-lg text-muted-foreground max-w-4xl mx-auto mb-6">
+              "Your Success, Our Mission – Premium Tuition by IIT–NIT Scholars"
+            </p>
+            <p className="text-xl text-brand-primary font-semibold">
+              Crack Exams with Confidence – Learn from IIT & NIT Experts
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            {tuitionFeatures.map((feature, index) => {
+              const IconComponent = feature.icon;
+              return (
+                <Card key={index} className="text-center">
+                  <CardHeader>
+                    <IconComponent className="w-12 h-12 text-brand-primary mx-auto mb-4" />
+                    <CardTitle className="text-lg">{feature.title}</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <CardDescription>{feature.description}</CardDescription>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+
+          <Card className="bg-gradient-to-r from-brand-primary/10 to-brand-accent/10 border-brand-primary/20">
+            <CardContent className="pt-6">
+              <div className="text-center">
+                <h3 className="text-2xl font-bold text-foreground mb-4">
+                  Trusted by Parents | Loved by Students | Mentorship from India's Best Institutes
+                </h3>
+                <p className="text-lg text-muted-foreground mb-6">
+                  3 IITians and 2 NITians came together to provide quality education online with experienced teachers, 
+                  believing in trust and delivering excellence at affordable prices.
+                </p>
+                <Link to="/tuition">
+                  <Button variant="brand" size="lg">
+                    Book Your Classes Today!
+                  </Button>
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Stats */}

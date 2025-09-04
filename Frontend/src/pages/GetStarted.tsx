@@ -25,7 +25,10 @@ const GetStarted = () => {
     phone: "",
     address: "",
     skillsNeeded: "",
-    password: ""  // Add password field
+    password: "",
+    confirmPassword: "",
+    gender: "",
+    age: ""
   });
 
   // Provider form state
@@ -35,7 +38,10 @@ const GetStarted = () => {
     phone: "",
     address: "",
     skills: "",
-    password: ""  // Add password field
+    password: "",
+    confirmPassword: "",
+    gender: "",
+    age: ""
   });
 
   // Form errors
@@ -73,6 +79,25 @@ const GetStarted = () => {
       errors.password = "Password must be at least 6 characters long";
     }
 
+    if (!userForm.confirmPassword.trim()) {
+      errors.confirmPassword = "Confirm your password";
+    } else if (userForm.confirmPassword !== userForm.password) {
+      errors.confirmPassword = "Passwords do not match";
+    }
+
+    if (!userForm.gender) {
+      errors.gender = "Gender is required";
+    }
+
+    if (!userForm.age) {
+      errors.age = "Age is required";
+    } else {
+      const ageNum = Number(userForm.age);
+      if (!Number.isFinite(ageNum) || ageNum < 13 || ageNum > 75) {
+        errors.age = "Enter a valid age (13-75)";
+      }
+    }
+
     if (!userForm.skillsNeeded.trim()) {
       errors.skillsNeeded = "Services needed is required";
     }
@@ -108,6 +133,31 @@ const GetStarted = () => {
 
     if (!providerForm.skills.trim()) {
       errors.skills = "Skills are required";
+    }
+
+    if (!providerForm.password.trim()) {
+      errors.password = "Password is required";
+    } else if (providerForm.password.length < 6) {
+      errors.password = "Password must be at least 6 characters long";
+    }
+
+    if (!providerForm.confirmPassword.trim()) {
+      errors.confirmPassword = "Confirm your password";
+    } else if (providerForm.confirmPassword !== providerForm.password) {
+      errors.confirmPassword = "Passwords do not match";
+    }
+
+    if (!providerForm.gender) {
+      errors.gender = "Gender is required";
+    }
+
+    if (!providerForm.age) {
+      errors.age = "Age is required";
+    } else {
+      const ageNum = Number(providerForm.age);
+      if (!Number.isFinite(ageNum) || ageNum < 18 || ageNum > 75) {
+        errors.age = "Enter a valid age (18-75)";
+      }
     }
 
     setProviderErrors(errors);
@@ -148,7 +198,9 @@ const GetStarted = () => {
             data: {
               full_name: userForm.name,
               phone: userForm.phone,
-              user_type: 'customer'
+              user_type: 'customer',
+              gender: userForm.gender,
+              age: Number(userForm.age)
             }
           }
         });
@@ -167,7 +219,9 @@ const GetStarted = () => {
               full_name: userForm.name,
               phone: userForm.phone,
               address: userForm.address,
-              user_type: 'customer'
+              user_type: 'customer',
+              gender: userForm.gender,
+              age: Number(userForm.age)
             });
 
           if (profileError) {
@@ -207,7 +261,10 @@ const GetStarted = () => {
             phone: "",
             address: "",
             skillsNeeded: "",
-            password: ""
+            password: "",
+            confirmPassword: "",
+            gender: "",
+            age: ""
           });
           
           // Redirect to customer dashboard (immediate access)
@@ -290,7 +347,9 @@ const GetStarted = () => {
             data: {
               full_name: providerForm.name,
               phone: providerForm.phone,
-              user_type: 'provider'
+              user_type: 'provider',
+              gender: providerForm.gender,
+              age: Number(providerForm.age)
             }
           }
         });
@@ -321,6 +380,8 @@ const GetStarted = () => {
               phone: providerForm.phone,
               address: providerForm.address,
               user_type: 'provider',
+              gender: providerForm.gender,
+              age: Number(providerForm.age),
               verification_status: 'pending'
             })
             .select()
@@ -372,7 +433,10 @@ const GetStarted = () => {
             phone: "",
             address: "",
             skills: "",
-            password: ""
+            password: "",
+            confirmPassword: "",
+            gender: "",
+            age: ""
           });
           
           // Redirect to provider dashboard (immediate access)
@@ -514,6 +578,58 @@ const GetStarted = () => {
                   )}
                 </div>
 
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="user-confirm-password">Confirm Password *</Label>
+                    <Input
+                      id="user-confirm-password"
+                      type="password"
+                      placeholder="Re-enter your password"
+                      value={userForm.confirmPassword}
+                      onChange={(e) => setUserForm({...userForm, confirmPassword: e.target.value})}
+                      className={userErrors.confirmPassword ? "border-red-500" : ""}
+                    />
+                    {userErrors.confirmPassword && (
+                      <p className="text-xs text-red-500">{userErrors.confirmPassword}</p>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="user-age">Age *</Label>
+                    <Input
+                      id="user-age"
+                      type="number"
+                      min={13}
+                      max={120}
+                      placeholder="Your age"
+                      value={userForm.age}
+                      onChange={(e) => setUserForm({...userForm, age: e.target.value})}
+                      className={userErrors.age ? "border-red-500" : ""}
+                    />
+                    {userErrors.age && (
+                      <p className="text-xs text-red-500">{userErrors.age}</p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="user-gender">Gender *</Label>
+                  <select
+                    id="user-gender"
+                    value={userForm.gender}
+                    onChange={(e) => setUserForm({...userForm, gender: e.target.value})}
+                    className={`w-full rounded-md border px-3 py-2 text-sm ${userErrors.gender ? 'border-red-500' : 'border-input'}`}
+                  >
+                    <option value="">Select gender</option>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                    <option value="other">Other</option>
+                    <option value="prefer_not_to_say">Prefer not to say</option>
+                  </select>
+                  {userErrors.gender && (
+                    <p className="text-xs text-red-500">{userErrors.gender}</p>
+                  )}
+                </div>
+
                 <div className="space-y-2">
                   <Label htmlFor="user-skills">Services You're Looking For *</Label>
                   <Textarea
@@ -610,6 +726,58 @@ const GetStarted = () => {
                   />
                   {providerErrors.password && (
                     <p className="text-xs text-red-500">{providerErrors.password}</p>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="provider-confirm-password">Confirm Password *</Label>
+                    <Input
+                      id="provider-confirm-password"
+                      type="password"
+                      placeholder="Re-enter your password"
+                      value={providerForm.confirmPassword}
+                      onChange={(e) => setProviderForm({...providerForm, confirmPassword: e.target.value})}
+                      className={providerErrors.confirmPassword ? "border-red-500" : ""}
+                    />
+                    {providerErrors.confirmPassword && (
+                      <p className="text-xs text-red-500">{providerErrors.confirmPassword}</p>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="provider-age">Age *</Label>
+                    <Input
+                      id="provider-age"
+                      type="number"
+                      min={18}
+                      max={120}
+                      placeholder="Your age"
+                      value={providerForm.age}
+                      onChange={(e) => setProviderForm({...providerForm, age: e.target.value})}
+                      className={providerErrors.age ? "border-red-500" : ""}
+                    />
+                    {providerErrors.age && (
+                      <p className="text-xs text-red-500">{providerErrors.age}</p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="provider-gender">Gender *</Label>
+                  <select
+                    id="provider-gender"
+                    value={providerForm.gender}
+                    onChange={(e) => setProviderForm({...providerForm, gender: e.target.value})}
+                    className={`w-full rounded-md border px-3 py-2 text-sm ${providerErrors.gender ? 'border-red-500' : 'border-input'}`}
+                  >
+                    <option value="">Select gender</option>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                    <option value="other">Other</option>
+                    <option value="prefer_not_to_say">Prefer not to say</option>
+                  </select>
+                  {providerErrors.gender && (
+                    <p className="text-xs text-red-500">{providerErrors.gender}</p>
                   )}
                 </div>
 
