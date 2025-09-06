@@ -26,7 +26,7 @@ import { useNavigate } from "react-router-dom";
 
 interface Booking {
   id: string;
-  service_date: string;
+  booking_date: string;
   start_time: string;
   end_time: string;
   total_amount: number;
@@ -44,13 +44,7 @@ interface Booking {
     full_name: string;
     email: string;
     phone: string;
-  };
-  service: {
-    id: string;
-    title: string;
-    category: string;
-    hourly_rate: number;
-    location: string;
+    business_name: string;
   };
 }
 
@@ -68,6 +62,17 @@ const AdminDashboard = () => {
 
   useEffect(() => {
     fetchBookings();
+    
+    // Listen for booking creation events
+    const handleBookingCreated = () => {
+      fetchBookings();
+    };
+    
+    window.addEventListener('bookingCreated', handleBookingCreated);
+    
+    return () => {
+      window.removeEventListener('bookingCreated', handleBookingCreated);
+    };
   }, []);
 
   const fetchBookings = async () => {
@@ -77,8 +82,7 @@ const AdminDashboard = () => {
         .select(`
           *,
           customer:users!bookings_customer_id_fkey(id, full_name, email, phone),
-          provider:users!bookings_provider_id_fkey(id, full_name, email, phone),
-          service:services!bookings_service_id_fkey(id, title, category, hourly_rate, location)
+          provider:providers!bookings_provider_id_fkey(id, full_name, email, phone, business_name)
         `)
         .order('created_at', { ascending: false });
 
@@ -99,6 +103,11 @@ const AdminDashboard = () => {
         .eq('id', bookingId);
 
       if (error) throw error;
+
+      // Dispatch custom event for real-time updates
+      window.dispatchEvent(new CustomEvent('bookingStatusChanged', { 
+        detail: { bookingId, newStatus } 
+      }));
 
       // Refresh bookings
       fetchBookings();
@@ -177,16 +186,15 @@ const AdminDashboard = () => {
   const fetchProviderStats = async () => {
     try {
       const { data, error } = await supabase
-        .from('users')
-        .select('verification_status')
-        .eq('user_type', 'provider');
+        .from('providers')
+        .select('verification_status, is_verified');
 
       if (error) throw error;
 
       const stats = {
         totalProviders: data?.length || 0,
         pendingProviders: data?.filter(p => p.verification_status === 'pending').length || 0,
-        acceptedProviders: data?.filter(p => p.verification_status === 'approved').length || 0,
+        acceptedProviders: data?.filter(p => p.verification_status === 'approved' && p.is_verified).length || 0,
         rejectedProviders: data?.filter(p => p.verification_status === 'rejected').length || 0
       };
 
@@ -375,7 +383,7 @@ const AdminDashboard = () => {
                       <div key={booking.id} className="flex items-center justify-between p-4 border rounded-lg">
                         <div className="flex items-center space-x-4">
                   <div>
-                            <p className="font-medium">{booking.service?.title || 'Unknown Service'}</p>
+                            <p className="font-medium">Service Booking</p>
                             <p className="text-sm text-muted-foreground">
                               {booking.customer?.full_name} → {booking.provider?.full_name}
                             </p>
@@ -387,7 +395,7 @@ const AdminDashboard = () => {
                           </Badge>
                           <p className="text-sm font-medium">₹{booking.total_amount}</p>
                           <p className="text-sm text-muted-foreground">
-                            {formatDate(booking.service_date)}
+                            {formatDate(booking.booking_date)}
                           </p>
                   </div>
                 </div>
@@ -419,15 +427,15 @@ const AdminDashboard = () => {
                     {bookings.map((booking) => (
                       <Card key={booking.id} className="border-l-4 border-l-blue-500">
                         <CardContent className="p-6">
-                          <div className="space-y-4">
+                            <div className="space-y-4">
                             {/* Service and Status Header */}
                           <div className="flex items-start justify-between">
                               <div className="space-y-2">
                                 <h3 className="text-xl font-semibold text-gray-900">
-                                  {booking.service?.title || 'Unknown Service'}
+                                  Service Booking
                                 </h3>
                               <div className="flex items-center gap-2">
-                                  <Badge variant="outline">{booking.service?.category || 'Unknown'}</Badge>
+                                  <Badge variant="outline">Service</Badge>
                                 <Badge className={getStatusColor(booking.status)}>
                                   {booking.status}
                                 </Badge>
@@ -436,7 +444,7 @@ const AdminDashboard = () => {
                               <div className="text-right">
                                 <p className="text-2xl font-bold text-green-600">₹{booking.total_amount}</p>
                                 <p className="text-sm text-muted-foreground">
-                                  {formatDate(booking.service_date)}
+                                  {formatDate(booking.booking_date)}
                                 </p>
                               </div>
                             </div>
@@ -499,13 +507,13 @@ const AdminDashboard = () => {
                                 </div>
                                 <div className="flex items-center gap-2">
                                   <DollarSign className="w-4 h-4 text-muted-foreground" />
-                                  <span className="font-medium">Rate:</span>
-                                  <span>₹{booking.service?.hourly_rate}/hr</span>
+                                  <span className="font-medium">Total:</span>
+                                  <span>₹{booking.total_amount}</span>
                                 </div>
                                 <div className="flex items-center gap-2">
                                   <MapPin className="w-4 h-4 text-muted-foreground" />
-                                  <span className="font-medium">Location:</span>
-                                  <span>{booking.service?.location || 'Unknown'}</span>
+                                  <span className="font-medium">Date:</span>
+                                  <span>{formatDate(booking.booking_date)}</span>
                                 </div>
                                 <div className="flex items-center gap-2">
                                   <Calendar className="w-4 h-4 text-muted-foreground" />

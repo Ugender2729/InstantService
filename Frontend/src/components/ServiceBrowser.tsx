@@ -12,25 +12,25 @@ import { Search, MapPin, Clock, Star, Calendar } from "lucide-react";
 
 interface Service {
   id: string;
+  provider_id: string;
   title: string;
   description: string;
-  price: number;
-  price_type: 'hourly' | 'fixed';
+  category: string;
+  hourly_rate: number;
   location: string;
-  availability: string;
-  status: string;
+  is_active: boolean;
   created_at: string;
+  updated_at: string;
   provider: {
     id: string;
     full_name: string;
     email: string;
     phone: string;
     address: string;
-  };
-  category: {
-    id: string;
-    name: string;
-    description: string;
+    city: string;
+    state: string;
+    is_verified: boolean;
+    verification_status: 'pending' | 'approved' | 'rejected';
   };
 }
 
@@ -38,28 +38,66 @@ const ServiceBrowser = () => {
   const { user } = useUser();
   const { toast } = useToast();
   const [services, setServices] = useState<Service[]>([]);
-  const [categories, setCategories] = useState<any[]>([]);
+  const [userBookings, setUserBookings] = useState<string[]>([]);
+  const [confirmedBookings, setConfirmedBookings] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedLocation, setSelectedLocation] = useState('');
 
+  // Service categories
+  const serviceCategories = [
+    'House Cleaning',
+    'Plumbing',
+    'Electrical',
+    'Carpentry',
+    'Gardening',
+    'Tutoring',
+    'Event Planning',
+    'Pet Care',
+    'IT Support',
+    'Beauty Services',
+    'Fitness Training',
+    'Other'
+  ];
+
   useEffect(() => {
     fetchServices();
-    fetchCategories();
-  }, []);
+    if (user) {
+      fetchUserBookings();
+    }
+  }, [selectedCategory, selectedLocation, user]);
 
-  const fetchCategories = async () => {
+  // Listen for booking status changes
+  useEffect(() => {
+    const handleBookingStatusChange = () => {
+      if (user) {
+        fetchUserBookings();
+      }
+    };
+
+    window.addEventListener('bookingStatusChanged', handleBookingStatusChange);
+    return () => window.removeEventListener('bookingStatusChanged', handleBookingStatusChange);
+  }, [user]);
+
+  const fetchUserBookings = async () => {
+    if (!user) return;
+    
     try {
       const { data, error } = await supabase
-        .from('service_categories')
-        .select('*')
-        .order('name');
+        .from('bookings')
+        .select('service_id, status')
+        .eq('customer_id', user.id);
 
       if (error) throw error;
-      setCategories(data || []);
-    } catch (error: any) {
-      console.error('Error fetching categories:', error);
+      
+      const bookedServiceIds = data?.map(booking => booking.service_id) || [];
+      const confirmedServiceIds = data?.filter(booking => booking.status === 'confirmed').map(booking => booking.service_id) || [];
+      
+      setUserBookings(bookedServiceIds);
+      setConfirmedBookings(confirmedServiceIds);
+    } catch (error) {
+      console.error('Error fetching user bookings:', error);
     }
   };
 
@@ -67,38 +105,63 @@ const ServiceBrowser = () => {
     try {
       setLoading(true);
       
+      // First, fetch all services
       let query = supabase
         .from('services')
-        .select(`
-          *,
-          provider:users!services_provider_id_fkey(
-            id,
-            full_name,
-            email,
-            phone,
-            address
-          ),
-          category:service_categories!services_category_id_fkey(
-            id,
-            name,
-            description
-          )
-        `)
-        .eq('status', 'active')
+        .select('*')
+        .eq('is_active', true)
         .order('created_at', { ascending: false });
 
       if (selectedCategory) {
-        query = query.eq('category_id', selectedCategory);
+        query = query.eq('category', selectedCategory);
       }
 
       if (selectedLocation) {
         query = query.ilike('location', `%${selectedLocation}%`);
       }
 
-      const { data, error } = await query;
+      const { data: servicesData, error: servicesError } = await query;
 
-      if (error) throw error;
-      setServices(data || []);
+      if (servicesError) throw servicesError;
+
+      if (!servicesData || servicesData.length === 0) {
+        setServices([]);
+        return;
+      }
+
+      // Get all provider IDs from services
+      const providerIds = [...new Set(servicesData.map(service => service.provider_id))];
+      
+      // Fetch providers data
+      const { data: providersData, error: providersError } = await supabase
+        .from('providers')
+        .select('id, full_name, email, phone, address, city, state, is_verified, verification_status')
+        .in('id', providerIds);
+
+      if (providersError) throw providersError;
+
+      // Combine services with provider data
+      const servicesWithProviders = servicesData.map(service => {
+        const provider = providersData?.find(p => p.id === service.provider_id);
+        return {
+          ...service,
+          provider: provider || {
+            id: service.provider_id,
+            full_name: 'Unknown Provider',
+            email: '',
+            phone: '',
+            address: '',
+            city: '',
+            state: '',
+            is_verified: false,
+            verification_status: 'pending'
+          }
+        };
+      });
+
+      // Show all services (for now, until providers are verified)
+      // TODO: Change back to verified only after providers are approved
+      setServices(servicesWithProviders);
     } catch (error: any) {
       console.error('Error fetching services:', error);
       toast({
@@ -141,7 +204,7 @@ const ServiceBrowser = () => {
           booking_date: new Date().toISOString().split('T')[0], // Today
           start_time: '09:00',
           end_time: '10:00',
-          total_amount: service.price,
+          total_amount: service.hourly_rate,
           notes: `Booking for ${service.title}`,
           status: 'pending'
         })
@@ -150,13 +213,17 @@ const ServiceBrowser = () => {
 
       if (error) throw error;
 
+      // Dispatch custom event for real-time updates
+      window.dispatchEvent(new CustomEvent('bookingCreated'));
+
       toast({
         title: "✅ Booking Created!",
-        description: "Your service has been booked successfully",
+        description: "Your service has been booked successfully. Contact details will be visible once confirmed.",
         variant: "default",
       });
 
-      // Refresh services
+      // Refresh user bookings and services to show contact details
+      await fetchUserBookings();
       fetchServices();
 
     } catch (error: any) {
@@ -164,6 +231,110 @@ const ServiceBrowser = () => {
       toast({
         title: "❌ Error",
         description: error.message || "Failed to create booking",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteService = async (service: Service) => {
+    if (!user) {
+      toast({
+        title: "❌ Login Required",
+        description: "Please sign in to delete services",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (user.type !== 'provider') {
+      toast({
+        title: "❌ Access Denied",
+        description: "Only service providers can delete their services",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('services')
+        .delete()
+        .eq('id', service.id)
+        .eq('provider_id', user.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "✅ Service Deleted!",
+        description: "Your service has been deleted successfully.",
+        variant: "default",
+      });
+
+      // Refresh services list
+      fetchServices();
+
+    } catch (error: any) {
+      console.error('Error deleting service:', error);
+      toast({
+        title: "❌ Error",
+        description: error.message || "Failed to delete service",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleCancelBooking = async (service: Service) => {
+    if (!user) {
+      toast({
+        title: "❌ Login Required",
+        description: "Please sign in to cancel bookings",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      // Find the booking for this service
+      const { data: bookings, error: fetchError } = await supabase
+        .from('bookings')
+        .select('id')
+        .eq('customer_id', user.id)
+        .eq('service_id', service.id)
+        .eq('status', 'pending');
+
+      if (fetchError) throw fetchError;
+
+      if (bookings && bookings.length > 0) {
+        // Cancel the booking
+        const { error } = await supabase
+          .from('bookings')
+          .update({ status: 'cancelled' })
+          .eq('id', bookings[0].id);
+
+        if (error) throw error;
+
+        toast({
+          title: "✅ Booking Cancelled!",
+          description: "Your booking has been cancelled successfully.",
+          variant: "default",
+        });
+
+        // Refresh user bookings and services
+        await fetchUserBookings();
+        fetchServices();
+      } else {
+        toast({
+          title: "❌ No Booking Found",
+          description: "No pending booking found for this service.",
+          variant: "destructive",
+        });
+      }
+
+    } catch (error: any) {
+      console.error('Error cancelling booking:', error);
+      toast({
+        title: "❌ Error",
+        description: error.message || "Failed to cancel booking",
         variant: "destructive",
       });
     }
@@ -205,9 +376,9 @@ const ServiceBrowser = () => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Categories</SelectItem>
-                {categories.map((category) => (
-                  <SelectItem key={category.id} value={category.id}>
-                    {category.name}
+                {serviceCategories.map((category) => (
+                  <SelectItem key={category} value={category}>
+                    {category}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -247,9 +418,9 @@ const ServiceBrowser = () => {
                   <div className="flex-1">
                     <CardTitle className="text-lg">{service.title}</CardTitle>
                     <div className="flex items-center gap-2 mt-2">
-                      <Badge variant="secondary">{service.category.name}</Badge>
+                      <Badge variant="secondary">{service.category}</Badge>
                       <Badge variant="outline">
-                        ₹{service.price} {service.price_type === 'hourly' ? '/hr' : ''}
+                        ₹{service.hourly_rate}/hr
                       </Badge>
                     </div>
                   </div>
@@ -277,17 +448,68 @@ const ServiceBrowser = () => {
                   <h4 className="font-medium mb-2">Provider</h4>
                   <div className="text-sm text-muted-foreground">
                     <div>{service.provider.full_name}</div>
-                    <div>{service.provider.phone}</div>
+                    <div>{service.provider.city}, {service.provider.state}</div>
+                    {confirmedBookings.includes(service.id) ? (
+                      <div className="space-y-1 mt-2">
+                        <div className="text-green-600 font-medium">✓ Confirmed - Contact Details:</div>
+                        <div>📧 {service.provider.email}</div>
+                        <div>📞 {service.provider.phone || 'Phone not provided'}</div>
+                        <div>📍 {service.provider.address || 'Address not provided'}</div>
+                      </div>
+                    ) : userBookings.includes(service.id) ? (
+                      <div className="text-yellow-600 font-medium">⏳ Booking Pending - Contact details will be visible once confirmed</div>
+                    ) : (
+                      <div className="text-gray-500">Book this service to see contact details</div>
+                    )}
                   </div>
                 </div>
 
-                <Button 
-                  onClick={() => handleBookService(service)}
-                  className="w-full"
-                  disabled={user?.type === 'provider'}
-                >
-                  Book This Service
-                </Button>
+                <div className="space-y-2">
+                  <Button 
+                    onClick={() => handleBookService(service)}
+                    className="w-full"
+                    disabled={user?.type === 'provider' || userBookings.includes(service.id)}
+                    variant={userBookings.includes(service.id) ? "outline" : "default"}
+                  >
+                    {userBookings.includes(service.id) ? '✓ Booked' : 'Book This Service'}
+                  </Button>
+                  
+                  {/* Cancel booking button for customers */}
+                  {user?.type === 'customer' && userBookings.includes(service.id) && (
+                    <Button 
+                      onClick={() => handleCancelBooking(service)}
+                      className="w-full"
+                      variant="outline"
+                      size="sm"
+                    >
+                      ❌ Cancel Booking
+                    </Button>
+                  )}
+                  
+                  {/* Delete button for service owners */}
+                  {user?.type === 'provider' && service.provider_id === user.id && (
+                    <Button 
+                      onClick={() => handleDeleteService(service)}
+                      className="w-full"
+                      variant="destructive"
+                      size="sm"
+                    >
+                      🗑️ Delete Service
+                    </Button>
+                  )}
+                  
+                  {/* Show delete button for testing - remove in production */}
+                  {user?.type === 'provider' && (
+                    <Button 
+                      onClick={() => handleDeleteService(service)}
+                      className="w-full"
+                      variant="outline"
+                      size="sm"
+                    >
+                      🗑️ Delete Service (Test)
+                    </Button>
+                  )}
+                </div>
               </CardContent>
             </Card>
           ))}

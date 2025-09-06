@@ -37,6 +37,9 @@ const GetStarted = () => {
     email: "",
     phone: "",
     address: "",
+    city: "",
+    state: "",
+    zipCode: "",
     skills: "",
     password: "",
     confirmPassword: ""
@@ -125,8 +128,22 @@ const GetStarted = () => {
 
     if (!providerForm.address.trim()) {
       errors.address = "Address is required";
-    } else if (providerForm.address.length > 35) {
-      errors.address = "Address must be maximum 35 characters";
+    } else if (providerForm.address.length > 100) {
+      errors.address = "Address must be maximum 100 characters";
+    }
+
+    if (!providerForm.city.trim()) {
+      errors.city = "City is required";
+    }
+
+    if (!providerForm.state.trim()) {
+      errors.state = "State is required";
+    }
+
+    if (!providerForm.zipCode.trim()) {
+      errors.zipCode = "ZIP code is required";
+    } else if (!/^\d{5,6}$/.test(providerForm.zipCode.replace(/\D/g, ''))) {
+      errors.zipCode = "ZIP code must be 5-6 digits";
     }
 
     if (!providerForm.skills.trim()) {
@@ -159,6 +176,26 @@ const GetStarted = () => {
           phone: userForm.phone,
           address: userForm.address
         });
+
+        // Check if email already exists in users table
+        const { data: existingUser, error: checkError } = await supabase
+          .from('users')
+          .select('id, email')
+          .eq('email', userForm.email.toLowerCase())
+          .single();
+
+        if (existingUser) {
+          toast({
+            title: "❌ Email Already Exists",
+            description: "An account with this email already exists. Please try signing in instead.",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        if (checkError && checkError.code !== 'PGRST116') { // PGRST116 = no rows returned
+          console.error('Error checking email:', checkError);
+        }
 
         // Generate a proper UUID for the customer
         const customerId = crypto.randomUUID();
@@ -266,6 +303,26 @@ const GetStarted = () => {
           skills: providerForm.skills
         });
 
+        // Check if email already exists in providers table
+        const { data: existingProvider, error: checkError } = await supabase
+          .from('providers')
+          .select('id, email')
+          .eq('email', providerForm.email.toLowerCase())
+          .single();
+
+        if (existingProvider) {
+          toast({
+            title: "❌ Email Already Exists",
+            description: "A provider account with this email already exists. Please try signing in instead.",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        if (checkError && checkError.code !== 'PGRST116') { // PGRST116 = no rows returned
+          console.error('Error checking email:', checkError);
+        }
+
         // Generate a proper UUID for the provider
         const providerId = crypto.randomUUID();
 
@@ -274,13 +331,21 @@ const GetStarted = () => {
           .from('providers')
           .insert({
             id: providerId,
+            email: providerForm.email,
             business_name: providerForm.name,
+            full_name: providerForm.name,
+            phone: providerForm.phone,
             description: providerForm.skills,
+            skills: providerForm.skills,
             address: providerForm.address,
-            city: 'Unknown', // Default city since it's required
+            city: providerForm.city,
+            state: providerForm.state,
+            zip_code: providerForm.zipCode,
             hourly_rate: 0, // Default rate since it's required
             is_verified: false,
-            created_at: new Date().toISOString()
+            verification_status: 'pending',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
           })
           .select()
           .single();
@@ -347,6 +412,9 @@ const GetStarted = () => {
           email: "",
           phone: "",
           address: "",
+          city: "",
+          state: "",
+          zipCode: "",
           skills: "",
           password: "",
           confirmPassword: ""
@@ -582,35 +650,77 @@ const GetStarted = () => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="provider-phone">Phone Number *</Label>
-                    <Input
-                      id="provider-phone"
-                      placeholder="Enter 10-digit phone number"
-                      value={providerForm.phone}
-                      onChange={(e) => setProviderForm({...providerForm, phone: e.target.value})}
-                      className={providerErrors.phone ? "border-red-500" : ""}
-                    />
-                    {providerErrors.phone && (
-                      <p className="text-xs text-red-500">{providerErrors.phone}</p>
-                    )}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="provider-phone">Phone Number *</Label>
+                      <Input
+                        id="provider-phone"
+                        placeholder="Enter 10-digit phone number"
+                        value={providerForm.phone}
+                        onChange={(e) => setProviderForm({...providerForm, phone: e.target.value})}
+                        className={providerErrors.phone ? "border-red-500" : ""}
+                      />
+                      {providerErrors.phone && (
+                        <p className="text-xs text-red-500">{providerErrors.phone}</p>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="provider-address">Address *</Label>
+                      <Input
+                        id="provider-address"
+                        placeholder="Enter your street address"
+                        value={providerForm.address}
+                        onChange={(e) => setProviderForm({...providerForm, address: e.target.value})}
+                        maxLength={100}
+                        className={providerErrors.address ? "border-red-500" : ""}
+                      />
+                      {providerErrors.address && (
+                        <p className="text-xs text-red-500">{providerErrors.address}</p>
+                      )}
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="provider-address">Address *</Label>
-                    <Input
-                      id="provider-address"
-                      placeholder="Enter your address (max 35 chars)"
-                      value={providerForm.address}
-                      onChange={(e) => setProviderForm({...providerForm, address: e.target.value})}
-                      maxLength={35}
-                      className={providerErrors.address ? "border-red-500" : ""}
-                    />
-                    {providerErrors.address && (
-                      <p className="text-xs text-red-500">{providerErrors.address}</p>
-                    )}
+
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="provider-city">City *</Label>
+                      <Input
+                        id="provider-city"
+                        placeholder="Enter your city"
+                        value={providerForm.city}
+                        onChange={(e) => setProviderForm({...providerForm, city: e.target.value})}
+                        className={providerErrors.city ? "border-red-500" : ""}
+                      />
+                      {providerErrors.city && (
+                        <p className="text-xs text-red-500">{providerErrors.city}</p>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="provider-state">State *</Label>
+                      <Input
+                        id="provider-state"
+                        placeholder="Enter your state"
+                        value={providerForm.state}
+                        onChange={(e) => setProviderForm({...providerForm, state: e.target.value})}
+                        className={providerErrors.state ? "border-red-500" : ""}
+                      />
+                      {providerErrors.state && (
+                        <p className="text-xs text-red-500">{providerErrors.state}</p>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="provider-zipCode">ZIP Code *</Label>
+                      <Input
+                        id="provider-zipCode"
+                        placeholder="Enter ZIP code"
+                        value={providerForm.zipCode}
+                        onChange={(e) => setProviderForm({...providerForm, zipCode: e.target.value})}
+                        className={providerErrors.zipCode ? "border-red-500" : ""}
+                      />
+                      {providerErrors.zipCode && (
+                        <p className="text-xs text-red-500">{providerErrors.zipCode}</p>
+                      )}
+                    </div>
                   </div>
-                </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="provider-password">Password *</Label>

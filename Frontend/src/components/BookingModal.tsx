@@ -30,8 +30,15 @@ interface Service {
   provider: {
     id: string;
     full_name: string;
+    business_name: string;
     phone: string;
     email: string;
+    address: string;
+    city: string;
+    state: string;
+    zip_code: string;
+    is_verified: boolean;
+    verification_status: 'pending' | 'approved' | 'rejected';
   };
 }
 
@@ -83,6 +90,16 @@ const BookingModal = ({ service, onClose, onSuccess }: BookingModalProps) => {
       return;
     }
 
+    // Check if provider is verified
+    if (!service.provider.is_verified || service.provider.verification_status !== 'approved') {
+      toast({
+        title: "❌ Provider Not Verified",
+        description: "This provider is not yet verified. Please choose a verified provider.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (hours <= 0) {
       toast({
         title: "❌ Invalid Time",
@@ -96,19 +113,21 @@ const BookingModal = ({ service, onClose, onSuccess }: BookingModalProps) => {
 
     try {
       // Create booking
-      const { data: bookingData, error: bookingError } = await supabase
+      const { data: bookingResult, error: bookingError } = await supabase
         .from('bookings')
         .insert({
           customer_id: user.id,
           provider_id: service.provider.id,
-          service_id: service.id,
-          service_date: bookingData.service_date,
+          service_category_id: service.id, // Using service as category for now
+          booking_date: bookingData.service_date,
           start_time: bookingData.start_time,
           end_time: bookingData.end_time,
           total_amount: amount,
           notes: bookingData.notes,
           status: 'pending'
-        });
+        })
+        .select()
+        .single();
 
       if (bookingError) throw bookingError;
 
@@ -121,6 +140,9 @@ const BookingModal = ({ service, onClose, onSuccess }: BookingModalProps) => {
           message: `${user.full_name} has booked your "${service.title}" service for ${bookingData.service_date}`,
           type: 'booking_request'
         });
+
+      // Dispatch event to update admin dashboard
+      window.dispatchEvent(new CustomEvent('bookingCreated'));
 
       toast({
         title: "✅ Booking Successful!",

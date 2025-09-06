@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useUser } from "@/contexts/UserContext";
 import { usePayment } from "@/contexts/PaymentContext";
 import { useNotifications } from "@/contexts/NotificationContext";
-import { Calendar, Clock, MapPin, User, CreditCard, Eye, EyeOff, Users, ArrowLeft } from "lucide-react";
+import { Calendar, Clock, MapPin, User, CreditCard, Eye, EyeOff, Users, ArrowLeft, Briefcase } from "lucide-react";
 import { Link } from "react-router-dom";
 
 const UserDashboard = () => {
@@ -68,10 +68,10 @@ const UserDashboard = () => {
               </p>
             </div>
           </div>
-          <Link to="/view-providers">
+          <Link to="/find-services">
             <Button className="flex items-center gap-2 bg-brand-primary hover:bg-brand-primary/90">
-              <Users className="w-4 h-4" />
-              View Providers
+              <Briefcase className="w-4 h-4" />
+              Posted Services
             </Button>
           </Link>
         </div>

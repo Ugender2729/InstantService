@@ -31,6 +31,7 @@ import ServiceBrowser from './components/ServiceBrowser';
 import Education from './pages/Education';
 import OnlineTuition from './pages/OnlineTuition';
 import InstantService from './pages/InstantService';
+import ProtectedAdminRoute from './components/ProtectedAdminRoute';
 // import TuitionStudentSignUp from './pages/TuitionStudentSignUp';
 // import TuitionTeacherSignUp from './pages/TuitionTeacherSignUp';
 
@@ -50,7 +51,11 @@ function App() {
                   <Route path="/signin" element={<SignIn />} />
                   <Route path="/dashboard" element={<UserDashboard />} />
                   <Route path="/admin/login" element={<AdminLogin />} />
-                  <Route path="/admin/dashboard" element={<AdminDashboard />} />
+                  <Route path="/admin/dashboard" element={
+                    <ProtectedAdminRoute>
+                      <AdminDashboard />
+                    </ProtectedAdminRoute>
+                  } />
                   <Route path="/database-test" element={<DatabaseTest />} />
                   <Route path="/server-test" element={<ServerTest />} />
                   <Route path="/supabase-test" element={<SupabaseTest />} />

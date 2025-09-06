@@ -31,17 +31,5 @@ CREATE POLICY "Allow public user read" ON users
     TO anon, authenticated
     USING (true);
 
--- Enable RLS on services table (if it exists)
-ALTER TABLE services ENABLE ROW LEVEL SECURITY;
-
--- Allow anyone to insert service data
-CREATE POLICY "Allow public service creation" ON services
-    FOR INSERT 
-    TO anon, authenticated
-    WITH CHECK (true);
-
--- Allow anyone to read service data
-CREATE POLICY "Allow public service read" ON services
-    FOR SELECT 
-    TO anon, authenticated
-    USING (true);
+-- Note: Services table policies removed as only 2 tables are needed
+-- (users for Find Services, providers for Provide Services)

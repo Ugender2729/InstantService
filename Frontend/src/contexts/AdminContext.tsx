@@ -24,14 +24,27 @@ interface AdminProviderProps {
 }
 
 export const AdminProvider: React.FC<AdminProviderProps> = ({ children }) => {
-  const [admin, setAdmin] = useState<AdminUser | null>(null);
+  const [admin, setAdmin] = useState<AdminUser | null>(() => {
+    // Check localStorage for existing admin session
+    const savedAdmin = localStorage.getItem('admin');
+    if (savedAdmin) {
+      try {
+        return JSON.parse(savedAdmin);
+      } catch (error) {
+        console.error('Error parsing saved admin data:', error);
+        localStorage.removeItem('admin');
+      }
+    }
+    return null;
+  });
 
   const adminLogin = (email: string, password: string): boolean => {
     console.log('Admin login attempt:', { email, password });
     console.log('Available admin users:', adminUsers);
     
+    // Case-insensitive email comparison
     const foundAdmin = adminUsers.find(
-      (a: AdminUser) => a.email === email && a.password === password
+      (a: AdminUser) => a.email.toLowerCase() === email.toLowerCase() && a.password === password
     );
 
     console.log('Found admin:', foundAdmin);
@@ -39,8 +52,11 @@ export const AdminProvider: React.FC<AdminProviderProps> = ({ children }) => {
     if (foundAdmin) {
       setAdmin(foundAdmin);
       localStorage.setItem('admin', JSON.stringify(foundAdmin));
+      console.log('Admin login successful:', foundAdmin.name);
       return true;
     }
+    
+    console.log('Admin login failed: Invalid credentials');
     return false;
   };
 

@@ -26,13 +26,15 @@ import { useUser } from "@/contexts/UserContext";
 
 interface Service {
   id: string;
+  provider_id: string;
   title: string;
   description: string;
   category: string;
   hourly_rate: number;
   location: string;
-  is_available: boolean;
+  is_active: boolean;
   created_at: string;
+  updated_at: string;
   bookings: Booking[];
 }
 
@@ -91,13 +93,28 @@ const ProviderDashboard = () => {
 
   const fetchServices = async () => {
     try {
+      // First get the provider ID from the providers table
+      const { data: provider, error: providerError } = await supabase
+        .from('providers')
+        .select('id')
+        .eq('email', user?.email)
+        .single();
+
+      if (providerError) throw providerError;
+      if (!provider) {
+        console.log('No provider profile found');
+        setServices([]);
+        return;
+      }
+
+      // Then fetch services for this provider
       const { data, error } = await supabase
         .from('services')
         .select(`
           *,
           bookings (*)
         `)
-        .eq('provider_id', user?.id)
+        .eq('provider_id', provider.id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -111,13 +128,27 @@ const ProviderDashboard = () => {
 
   const fetchBookings = async () => {
     try {
+      // First get the provider ID from the providers table
+      const { data: provider, error: providerError } = await supabase
+        .from('providers')
+        .select('id')
+        .eq('email', user?.email)
+        .single();
+
+      if (providerError) throw providerError;
+      if (!provider) {
+        console.log('No provider profile found');
+        setBookings([]);
+        return;
+      }
+
       const { data, error } = await supabase
         .from('bookings')
         .select(`
           *,
           customer:users!bookings_customer_id_fkey(full_name, email, phone)
         `)
-        .eq('provider_id', user?.id)
+        .eq('provider_id', provider.id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -149,16 +180,33 @@ const ProviderDashboard = () => {
     }
 
     try {
+      // First get the provider ID from the providers table
+      const { data: provider, error: providerError } = await supabase
+        .from('providers')
+        .select('id')
+        .eq('email', user.email)
+        .single();
+
+      if (providerError) throw providerError;
+      if (!provider) {
+        toast({
+          title: "❌ Error",
+          description: "Provider profile not found. Please complete your provider registration first.",
+          variant: "destructive",
+        });
+        return;
+      }
+
       const { data, error } = await supabase
         .from('services')
         .insert({
-          provider_id: user.id,
+          provider_id: provider.id,
           title: newService.title,
           description: newService.description,
           category: newService.category,
           hourly_rate: parseFloat(newService.hourly_rate),
           location: newService.location,
-          is_available: true
+          is_active: true
         });
 
       if (error) throw error;
@@ -325,8 +373,8 @@ const ProviderDashboard = () => {
                           <div className="space-y-3">
                             <div className="flex items-start justify-between">
                               <h3 className="font-semibold text-lg">{service.title}</h3>
-                              <Badge className={service.is_available ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>
-                                {service.is_available ? 'Available' : 'Unavailable'}
+                              <Badge className={service.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>
+                                {service.is_active ? 'Available' : 'Unavailable'}
                               </Badge>
                             </div>
                             

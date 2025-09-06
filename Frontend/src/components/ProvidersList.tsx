@@ -6,13 +6,22 @@ import { Star, Clock, MapPin, Phone } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
 interface Provider {
-  id: number;
-  name: string;
+  id: string;
+  email: string;
+  business_name: string;
+  full_name: string;
+  phone: string | null;
+  address: string;
+  city: string;
+  state: string;
+  zip_code: string;
+  description: string;
   skills: string;
   hourly_rate: number;
-  availability: string;
-  rating: number;
-  total_reviews: number;
+  is_verified: boolean;
+  verification_status: 'pending' | 'approved' | 'rejected';
+  created_at: string;
+  updated_at: string;
 }
 
 const ProvidersList = () => {
@@ -27,11 +36,12 @@ const ProvidersList = () => {
   const fetchProviders = async () => {
     setLoading(true);
     try {
-      // Fetch providers from Supabase
+      // Fetch only accepted providers from Supabase
       const { data, error } = await supabase
         .from('providers')
         .select('*')
-        .eq('is_available', true)
+        .eq('is_verified', true)
+        .eq('verification_status', 'approved')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -107,16 +117,21 @@ const ProvidersList = () => {
                 <CardHeader>
                   <div className="flex justify-between items-start">
                     <div>
-                      <CardTitle className="text-xl">{provider.name}</CardTitle>
+                      <CardTitle className="text-xl">{provider.full_name}</CardTitle>
                       <CardDescription className="mt-2">
                         <div className="flex items-center gap-1 text-sm">
                           <MapPin className="w-4 h-4" />
-                          <span>Service Provider</span>
+                          <span>{provider.city}, {provider.state}</span>
                         </div>
+                        {provider.business_name && (
+                          <div className="text-sm text-muted-foreground mt-1">
+                            {provider.business_name}
+                          </div>
+                        )}
                       </CardDescription>
                     </div>
                     <Badge variant="secondary" className="text-xs">
-                      ${provider.hourly_rate}/hr
+                      ₹{provider.hourly_rate}/hr
                     </Badge>
                   </div>
                 </CardHeader>
@@ -126,11 +141,18 @@ const ProvidersList = () => {
                     <p className="text-sm text-muted-foreground">{provider.skills}</p>
                   </div>
 
+                  {provider.description && (
+                    <div>
+                      <h4 className="font-medium mb-1 text-sm">Description</h4>
+                      <p className="text-sm text-muted-foreground">{provider.description}</p>
+                    </div>
+                  )}
+
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1">
-                      {renderStars(provider.rating)}
+                      <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
                       <span className="text-sm text-muted-foreground ml-1">
-                        ({provider.total_reviews} reviews)
+                        Verified Provider
                       </span>
                     </div>
                     <div className="flex items-center gap-1 text-sm text-muted-foreground">
@@ -139,19 +161,45 @@ const ProvidersList = () => {
                     </div>
                   </div>
 
-                  {provider.availability && (
-                    <div>
-                      <h4 className="font-medium mb-1 text-sm">Availability</h4>
-                      <p className="text-xs text-muted-foreground">{provider.availability}</p>
+                  {/* Only show contact details for verified providers */}
+                  {provider.is_verified && provider.verification_status === 'approved' ? (
+                    <div className="space-y-2 text-sm">
+                      <div className="flex items-center gap-2">
+                        <Phone className="w-4 h-4 text-muted-foreground" />
+                        <span>{provider.phone || 'Phone not provided'}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <MapPin className="w-4 h-4 text-muted-foreground" />
+                        <span>{provider.address}</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-2 text-sm">
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <Phone className="w-4 h-4" />
+                        <span>Contact details available after verification</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <MapPin className="w-4 h-4" />
+                        <span>Location: {provider.city}, {provider.state}</span>
+                      </div>
                     </div>
                   )}
 
                   <div className="flex gap-2">
-                    <Button variant="brand" className="flex-1">
+                    <Button 
+                      variant="brand" 
+                      className="flex-1"
+                      disabled={!provider.is_verified || provider.verification_status !== 'approved'}
+                    >
                       <Phone className="w-4 h-4 mr-2" />
-                      Contact
+                      {provider.is_verified && provider.verification_status === 'approved' ? 'Contact' : 'Verify to Contact'}
                     </Button>
-                    <Button variant="outline" className="flex-1">
+                    <Button 
+                      variant="outline" 
+                      className="flex-1"
+                      disabled={!provider.is_verified || provider.verification_status !== 'approved'}
+                    >
                       View Profile
                     </Button>
                   </div>

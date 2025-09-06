@@ -21,8 +21,8 @@ export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
 
 // Admin credentials (hardcoded for security)
 export const ADMIN_CREDENTIALS = {
-  email: 'ugenderdharavath@gmail.com',
-  password: '9381493260'
+  email: 'Ugenderdharavath@gmail.com',
+  password: '9398601984'
 }
 
 // Function to check if current user is admin
