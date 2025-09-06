@@ -42,14 +42,38 @@ const SignIn = () => {
 
       if (error) throw error;
 
-      // Get user profile data
-      const { data: profileData, error: profileError } = await supabase
+      // Get user profile data - check both users and providers tables
+      let profileData = null;
+      let profileError = null;
+
+      // First try to find in users table (customers)
+      const { data: userData, error: userError } = await supabase
         .from('users')
         .select('*')
         .eq('id', data.user.id)
         .single();
 
+      if (userData) {
+        profileData = userData;
+      } else {
+        // If not found in users, try providers table
+        const { data: providerData, error: providerError } = await supabase
+          .from('providers')
+          .select('*')
+          .eq('id', data.user.id)
+          .single();
+        
+        if (providerData) {
+          profileData = providerData;
+        } else {
+          profileError = providerError;
+        }
+      }
+
       if (profileError) throw profileError;
+
+      // Determine user type based on which table the data came from
+      const userType = userData ? 'customer' : 'provider';
 
       // Login with user context
       await login({
@@ -58,8 +82,8 @@ const SignIn = () => {
         email: data.user.email!,
         phone: profileData.phone,
         address: profileData.address || '',
-        type: profileData.user_type === 'provider' ? 'provider' : 'customer',
-        skills: '',
+        type: userType,
+        skills: profileData.skills || '',
           });
 
           toast({
@@ -69,7 +93,7 @@ const SignIn = () => {
           });
           
       // Redirect based on user type
-      if (profileData.user_type === 'provider') {
+      if (userType === 'provider') {
         navigate('/provider/dashboard');
         } else {
         navigate('/dashboard');

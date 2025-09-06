@@ -30,14 +30,7 @@ const ProvidersList = () => {
       // Fetch providers from Supabase
       const { data, error } = await supabase
         .from('providers')
-        .select(`
-          *,
-          users (
-            full_name,
-            email,
-            phone
-          )
-        `)
+        .select('*')
         .eq('is_available', true)
         .order('created_at', { ascending: false });
 

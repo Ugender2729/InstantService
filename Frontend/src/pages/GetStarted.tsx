@@ -305,18 +305,18 @@ const GetStarted = () => {
     e.preventDefault();
     if (validateProviderForm()) {
       try {
-        // First check if email already exists in users table
-        console.log('Checking if email exists:', providerForm.email);
-        const { data: existingUser, error: checkError } = await supabase
-          .from('users')
+        // First check if email already exists in providers table
+        console.log('Checking if email exists in providers:', providerForm.email);
+        const { data: existingProvider, error: checkError } = await supabase
+          .from('providers')
           .select('id, email')
           .eq('email', providerForm.email.toLowerCase())
           .single();
 
-        if (existingUser) {
+        if (existingProvider) {
           toast({
             title: "❌ Email Already Exists",
-            description: "An account with this email already exists. Please try signing in instead.",
+            description: "A provider account with this email already exists. Please try signing in instead.",
             variant: "destructive",
           });
           return;
@@ -361,28 +361,30 @@ const GetStarted = () => {
         }
 
         if (data.user) {
-          console.log('Creating user profile with data:', {
+          console.log('Creating provider profile with data:', {
             id: data.user.id,
             email: providerForm.email,
             full_name: providerForm.name,
             phone: providerForm.phone,
             address: providerForm.address,
-            user_type: 'provider'
+            skills: providerForm.skills
           });
 
-          // Create user profile in users table
+          // Create provider profile in providers table
           const { data: profileData, error: profileError } = await supabase
-            .from('users')
+            .from('providers')
             .insert({
               id: data.user.id,
               email: providerForm.email,
               full_name: providerForm.name,
               phone: providerForm.phone,
               address: providerForm.address,
-              user_type: 'provider',
+              skills: providerForm.skills,
               gender: providerForm.gender,
               age: Number(providerForm.age),
-              verification_status: 'pending'
+              verification_status: 'pending',
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
             })
             .select()
             .single();

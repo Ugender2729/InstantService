@@ -88,12 +88,11 @@ const ServicePosting = () => {
     setLoading(true);
 
     try {
-      // First, get the provider profile
+      // First, get the provider profile from providers table
       const { data: providerData, error: providerError } = await supabase
-        .from('users')
+        .from('providers')
         .select('id')
         .eq('id', user.id)
-        .eq('user_type', 'provider')
         .single();
 
       if (providerError || !providerData) {
