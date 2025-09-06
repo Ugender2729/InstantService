@@ -31,8 +31,8 @@ import ServiceBrowser from './components/ServiceBrowser';
 import Education from './pages/Education';
 import OnlineTuition from './pages/OnlineTuition';
 import InstantService from './pages/InstantService';
-import TuitionStudentSignUp from './pages/TuitionStudentSignUp';
-import TuitionTeacherSignUp from './pages/TuitionTeacherSignUp';
+// import TuitionStudentSignUp from './pages/TuitionStudentSignUp';
+// import TuitionTeacherSignUp from './pages/TuitionTeacherSignUp';
 
 // Full App with all routes restored
 function App() {
@@ -65,8 +65,8 @@ function App() {
                   <Route path="/browse-services" element={<ServiceBrowser />} />
                   <Route path="/education" element={<Education />} />
                   <Route path="/tuition" element={<OnlineTuition />} />
-                  <Route path="/tuition/student/signup" element={<TuitionStudentSignUp />} />
-                  <Route path="/tuition/teacher/signup" element={<TuitionTeacherSignUp />} />
+                  {/* <Route path="/tuition/student/signup" element={<TuitionStudentSignUp />} />
+                  <Route path="/tuition/teacher/signup" element={<TuitionTeacherSignUp />} /> */}
                   <Route path="/instant-service" element={<InstantService />} />
                   <Route path="/test-signup" element={<TestSignup />} />
                   

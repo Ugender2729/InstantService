@@ -1,16 +1,19 @@
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { Menu, X, User, Settings, LogOut, LayoutDashboard, Shield, Users } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useUser } from "@/contexts/UserContext";
 
 const Header = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { user, isAuthenticated, logout } = useUser();
+  const navigate = useNavigate();
 
   const handleLogout = () => {
     logout();
     setIsMobileMenuOpen(false);
+    // Redirect to home page after logout
+    navigate('/');
   };
 
   return (

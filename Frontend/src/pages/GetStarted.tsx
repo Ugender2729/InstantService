@@ -39,9 +39,7 @@ const GetStarted = () => {
     address: "",
     skills: "",
     password: "",
-    confirmPassword: "",
-    gender: "",
-    age: ""
+    confirmPassword: ""
   });
 
   // Form errors
@@ -147,19 +145,6 @@ const GetStarted = () => {
       errors.confirmPassword = "Passwords do not match";
     }
 
-    if (!providerForm.gender) {
-      errors.gender = "Gender is required";
-    }
-
-    if (!providerForm.age) {
-      errors.age = "Age is required";
-    } else {
-      const ageNum = Number(providerForm.age);
-      if (!Number.isFinite(ageNum) || ageNum < 18 || ageNum > 75) {
-        errors.age = "Enter a valid age (18-75)";
-      }
-    }
-
     setProviderErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -168,122 +153,90 @@ const GetStarted = () => {
     e.preventDefault();
     if (validateUserForm()) {
       try {
-        // First check if email already exists in users table
-        console.log('Checking if email exists:', userForm.email);
-        const { data: existingUser, error: checkError } = await supabase
-          .from('users')
-          .select('id, email')
-          .eq('email', userForm.email.toLowerCase())
-          .single();
-
-        if (existingUser) {
-          toast({
-            title: "❌ Email Already Exists",
-            description: "An account with this email already exists. Please try signing in instead.",
-            variant: "destructive",
-          });
-          return;
-        }
-
-        if (checkError && checkError.code !== 'PGRST116') { // PGRST116 = no rows returned
-          console.error('Error checking email:', checkError);
-        }
-
-        console.log('Email is available, proceeding with registration');
-        // Use Supabase authentication
-        const { data, error } = await supabase.auth.signUp({
+        console.log('Creating customer account directly in database:', {
           email: userForm.email,
-          password: userForm.password, // Use userForm.password
-          options: {
-            data: {
-              full_name: userForm.name,
-              phone: userForm.phone,
-              user_type: 'customer',
-              gender: userForm.gender,
-              age: Number(userForm.age)
-            }
-          }
+          name: userForm.name,
+          phone: userForm.phone,
+          address: userForm.address
         });
 
-        if (error) {
-          throw error;
-        }
+        // Generate a proper UUID for the customer
+        const customerId = crypto.randomUUID();
 
-        if (data.user) {
-          // Create user profile in users table
-          const { error: profileError } = await supabase
-            .from('users')
-            .insert({
-              id: data.user.id,
-              email: userForm.email,
-              full_name: userForm.name,
-              phone: userForm.phone,
-              address: userForm.address,
-              user_type: 'customer',
-              gender: userForm.gender,
-              age: Number(userForm.age)
-            });
-
-          if (profileError) {
-            console.error('Error creating profile:', profileError);
-          }
-
-          const userData = {
-            id: data.user.id,
-            name: userForm.name,
+        // Create customer profile directly in users table (no auth required)
+        const { data: profileData, error: profileError } = await supabase
+          .from('users')
+          .insert({
+            id: customerId,
             email: userForm.email,
+            full_name: userForm.name,
             phone: userForm.phone,
             address: userForm.address,
-            type: 'customer' as const,
-            skills: userForm.skillsNeeded,
-          };
-          
-          // Automatically log in the user after successful signup
-          await saveUserData(userData);
-          
-          // Show success popup
-          toast({
-            title: "🎉 Welcome to InstaServe!",
-            description: "Your account has been created successfully! You are now logged in and can browse and book services.",
-            variant: "default",
-          });
-          
-          addNotification({
-            type: 'info',
-            title: 'Welcome to InstaServe!',
-            message: 'Your account has been created successfully! You are now logged in.',
-          });
-          
-          // Clear the form
-          setUserForm({
-            name: "",
-            email: "",
-            phone: "",
-            address: "",
-            skillsNeeded: "",
-            password: "",
-            confirmPassword: "",
-            gender: "",
-            age: ""
-          });
-          
-          // Redirect to customer dashboard (immediate access)
-          navigate('/dashboard');
+            user_type: 'customer',
+            gender: userForm.gender,
+            age: Number(userForm.age),
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          })
+          .select()
+          .single();
+
+        console.log('Profile creation response:', { profileData, profileError });
+
+        if (profileError) {
+          console.error('Error creating profile:', profileError);
+          throw profileError;
         }
+
+        console.log('Customer created successfully:', profileData);
+
+        const userData = {
+          id: customerId,
+          name: userForm.name,
+          email: userForm.email,
+          phone: userForm.phone,
+          address: userForm.address,
+          type: 'customer' as const,
+          skills: userForm.skillsNeeded,
+        };
+        
+        // Automatically log in the user after successful signup
+        await saveUserData(userData);
+        
+        // Show success popup
+        toast({
+          title: "🎉 Welcome to InstaServe!",
+          description: "Your account has been created successfully! You are now logged in and can browse and book services.",
+          variant: "default",
+        });
+        
+        addNotification({
+          type: 'info',
+          title: 'Welcome to InstaServe!',
+          message: 'Your account has been created successfully! You are now logged in.',
+        });
+        
+        // Clear the form
+        setUserForm({
+          name: "",
+          email: "",
+          phone: "",
+          address: "",
+          skillsNeeded: "",
+          password: "",
+          confirmPassword: "",
+          gender: "",
+          age: ""
+        });
+        
+        // Redirect to customer dashboard (immediate access)
+        navigate('/dashboard');
       } catch (error: any) {
         console.error('Signup error:', error);
         
         let errorMessage = 'Failed to create account. Please try again.';
         if (error.message) {
-          if (error.message.includes('User already registered')) {
-            errorMessage = 'An account with this email already exists. Please try signing in instead.';
-          } else if (error.message.includes('Password should be at least')) {
-            errorMessage = 'Password must be at least 6 characters long.';
-          } else if (error.message.includes('Invalid email')) {
-            errorMessage = 'Please enter a valid email address.';
-          } else {
-            errorMessage = `Registration error: ${error.message}`;
-          }
+          errorMessage = `Registration error: ${error.message}`;
         }
 
         toast({
@@ -305,165 +258,108 @@ const GetStarted = () => {
     e.preventDefault();
     if (validateProviderForm()) {
       try {
-        // First check if email already exists in providers table
-        console.log('Checking if email exists in providers:', providerForm.email);
-        const { data: existingProvider, error: checkError } = await supabase
+        console.log('Creating provider account directly in database:', {
+          email: providerForm.email,
+          name: providerForm.name,
+          phone: providerForm.phone,
+          address: providerForm.address,
+          skills: providerForm.skills
+        });
+
+        // Generate a proper UUID for the provider
+        const providerId = crypto.randomUUID();
+
+        // Create provider profile directly in providers table (no auth required)
+        const { data: profileData, error: profileError } = await supabase
           .from('providers')
-          .select('id, email')
-          .eq('email', providerForm.email.toLowerCase())
+          .insert({
+            id: providerId,
+            business_name: providerForm.name,
+            description: providerForm.skills,
+            address: providerForm.address,
+            city: 'Unknown', // Default city since it's required
+            hourly_rate: 0, // Default rate since it's required
+            is_verified: false,
+            created_at: new Date().toISOString()
+          })
+          .select()
           .single();
 
-        if (existingProvider) {
-          toast({
-            title: "❌ Email Already Exists",
-            description: "A provider account with this email already exists. Please try signing in instead.",
-            variant: "destructive",
-          });
-          return;
+        console.log('Profile creation response:', { profileData, profileError });
+
+        if (profileError) {
+          console.error('Error creating profile:', profileError);
+          throw profileError;
         }
 
-        if (checkError && checkError.code !== 'PGRST116') { // PGRST116 = no rows returned
-          console.error('Error checking email:', checkError);
-        }
+        console.log('Provider created successfully:', profileData);
 
-        console.log('Email is available, proceeding with registration');
-        console.log('Attempting Supabase Auth signup with:', {
-          email: providerForm.email,
-          password: providerForm.password,
-          options: {
-            data: {
-              full_name: providerForm.name,
-              phone: providerForm.phone,
-              user_type: 'provider'
-            }
-          }
-        });
-
-        // Use Supabase authentication
-        const { data, error } = await supabase.auth.signUp({
-          email: providerForm.email,
-          password: providerForm.password,
-          options: {
-            data: {
-              full_name: providerForm.name,
-              phone: providerForm.phone,
-              user_type: 'provider',
-              gender: providerForm.gender,
-              age: Number(providerForm.age)
-            }
-          }
-        });
-
-        console.log('Supabase Auth response:', { data, error });
-
-        if (error) {
-          throw error;
-        }
-
-        if (data.user) {
-          console.log('Creating provider profile with data:', {
-            id: data.user.id,
+        // Also store in users table for login purposes
+        const { data: userData, error: userError } = await supabase
+          .from('users')
+          .insert({
+            id: providerId,
             email: providerForm.email,
             full_name: providerForm.name,
             phone: providerForm.phone,
             address: providerForm.address,
-            skills: providerForm.skills
-          });
+            user_type: 'provider',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          })
+          .select()
+          .single();
 
-          // Create provider profile in providers table
-          const { data: profileData, error: profileError } = await supabase
-            .from('providers')
-            .insert({
-              id: data.user.id,
-              email: providerForm.email,
-              full_name: providerForm.name,
-              phone: providerForm.phone,
-              address: providerForm.address,
-              skills: providerForm.skills,
-              gender: providerForm.gender,
-              age: Number(providerForm.age),
-              verification_status: 'pending',
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
-            })
-            .select()
-            .single();
-
-          console.log('Profile creation response:', { profileData, profileError });
-
-          if (profileError) {
-            console.error('Error creating profile:', profileError);
-            console.error('Profile error details:', profileError.message);
-            console.error('Profile error code:', profileError.code);
-            console.error('Profile error details:', profileError.details);
-            console.error('Profile error hint:', profileError.hint);
-            throw profileError;
-          }
-
-          console.log('Profile created successfully:', profileData);
-
-          const userData = {
-            id: data.user.id,
-            name: providerForm.name,
-            email: providerForm.email,
-            phone: providerForm.phone,
-            address: providerForm.address,
-            type: 'provider' as const,
-            skills: providerForm.skills,
-          };
-          
-          // Automatically log in the provider after successful signup
-          await saveUserData(userData);
-          
-          // Show success popup
-          toast({
-            title: "🎉 Provider Account Created!",
-            description: "Your provider account has been created successfully! You are now logged in and can set up your service offerings.",
-            variant: "default",
-          });
-          
-          addNotification({
-            type: 'info',
-            title: 'Provider Account Created!',
-            message: 'Your provider account has been created successfully! You are now logged in.',
-          });
-          
-          // Clear the form
-          setProviderForm({
-            name: "",
-            email: "",
-            phone: "",
-            address: "",
-            skills: "",
-            password: "",
-            confirmPassword: "",
-            gender: "",
-            age: ""
-          });
-          
-          // Redirect to provider dashboard (immediate access)
-          navigate('/provider/dashboard');
+        if (userError) {
+          console.error('Error creating user record:', userError);
+          // Don't throw error, provider was created successfully
         }
+
+        const userContextData = {
+          id: providerId,
+          name: providerForm.name,
+          email: providerForm.email,
+          phone: providerForm.phone,
+          address: providerForm.address,
+          type: 'provider' as const,
+          skills: providerForm.skills,
+        };
+        
+        // Automatically log in the provider after successful signup
+        await saveUserData(userContextData);
+        
+        // Show success popup
+        toast({
+          title: "🎉 Provider Account Created!",
+          description: "Your provider account has been created successfully! You are now logged in and can set up your service offerings.",
+          variant: "default",
+        });
+        
+        addNotification({
+          type: 'info',
+          title: 'Provider Account Created!',
+          message: 'Your provider account has been created successfully! You are now logged in.',
+        });
+        
+        // Clear the form
+        setProviderForm({
+          name: "",
+          email: "",
+          phone: "",
+          address: "",
+          skills: "",
+          password: "",
+          confirmPassword: ""
+        });
+        
+        // Redirect to provider dashboard (immediate access)
+        navigate('/provider/dashboard');
       } catch (error: any) {
         console.error('Provider signup error:', error);
-        console.error('Error details:', error.message);
-        console.error('Error code:', error.code);
-        console.error('Error details:', error.details);
-        console.error('Error hint:', error.hint);
         
         let errorMessage = 'Failed to create provider account. Please try again.';
         if (error.message) {
-          if (error.message.includes('User already registered') || error.message.includes('already registered')) {
-            errorMessage = 'An account with this email already exists. Please try signing in instead.';
-          } else if (error.message.includes('Password should be at least')) {
-            errorMessage = 'Password must be at least 6 characters long.';
-          } else if (error.message.includes('address')) {
-            errorMessage = 'Address field error: ' + error.message;
-          } else if (error.message.includes('verification_status')) {
-            errorMessage = 'Verification status error: ' + error.message;
-          } else if (error.message.includes('email')) {
-            errorMessage = 'Email error: ' + error.message;
-          }
+          errorMessage = `Registration error: ${error.message}`;
         }
 
         toast({
@@ -731,7 +627,6 @@ const GetStarted = () => {
                   )}
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="provider-confirm-password">Confirm Password *</Label>
                     <Input
@@ -746,42 +641,7 @@ const GetStarted = () => {
                       <p className="text-xs text-red-500">{providerErrors.confirmPassword}</p>
                     )}
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="provider-age">Age *</Label>
-                    <Input
-                      id="provider-age"
-                      type="number"
-                      min={18}
-                      max={120}
-                      placeholder="Your age"
-                      value={providerForm.age}
-                      onChange={(e) => setProviderForm({...providerForm, age: e.target.value})}
-                      className={providerErrors.age ? "border-red-500" : ""}
-                    />
-                    {providerErrors.age && (
-                      <p className="text-xs text-red-500">{providerErrors.age}</p>
-                    )}
-                  </div>
-                </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="provider-gender">Gender *</Label>
-                  <select
-                    id="provider-gender"
-                    value={providerForm.gender}
-                    onChange={(e) => setProviderForm({...providerForm, gender: e.target.value})}
-                    className={`w-full rounded-md border px-3 py-2 text-sm ${providerErrors.gender ? 'border-red-500' : 'border-input'}`}
-                  >
-                    <option value="">Select gender</option>
-                    <option value="male">Male</option>
-                    <option value="female">Female</option>
-                    <option value="other">Other</option>
-                    <option value="prefer_not_to_say">Prefer not to say</option>
-                  </select>
-                  {providerErrors.gender && (
-                    <p className="text-xs text-red-500">{providerErrors.gender}</p>
-                  )}
-                </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="provider-skills">Your Skills & Services *</Label>
